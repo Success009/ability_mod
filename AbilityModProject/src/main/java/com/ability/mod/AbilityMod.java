@@ -25,20 +25,27 @@ public class AbilityMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("Ability SMP v95 (Final Release) Initializing...");
+        LOGGER.info("Ability SMP v101 (Persistent Bridge) Initializing...");
         
-        // Clear logs
-        try {
-            Files.deleteIfExists(Path.of(System.getenv("LOCALAPPDATA"), "ability_gateway.log"));
-        } catch (IOException ignored) {}
+        // Clear logs (Optional, only if we are launching new)
+        // try { Files.deleteIfExists(Path.of(System.getenv("LOCALAPPDATA"), "ability_gateway.log")); } catch (IOException ignored) {}
 
-        // Kill old bridge
-        try {
-            new ProcessBuilder("taskkill", "/F", "/IM", "AbilityGateway.exe").start();
-        } catch (Exception ignored) {}
+        // Check if Bridge is already alive
+        if (isBridgeRunning()) {
+            LOGGER.info("Ability Gateway is already running. Reusing existing connection.");
+            return;
+        }
 
-        // Janitor handled mods. Launch Gateway.
+        // Only launch if NOT running
         launchGateway();
+    }
+
+    private boolean isBridgeRunning() {
+        try (Socket socket = new Socket("100.127.127.127", 25565)) {
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private void launchGateway() {
