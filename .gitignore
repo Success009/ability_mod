@@ -11,13 +11,27 @@ STABLE_V*_BACKUP/
 *_Backup_v*/
 logs_analysis/
 
-# Binary Mods (We bundle them in resources, don't need raw copies in repo root)
+# Binary Mods
 mods/
+release/
+
+# SOURCE CODE (HIDDEN FROM GITHUB)
+AbilityModProject/
+tsnet-bridge/
+ability-bridge/
+scripts/
+documentation/
+planning/
+website/
+access.txt
+DEPLOYMENT.md
+DEVELOPMENT.md
+GEMINI.md
+HISTORY.md
+PLUGINS.md
+ARCHITECTURE.md
 
 # IDE files
 .idea/
 *.iml
 .vscode/
-
-.gemini/
-gha-creds-*.json
