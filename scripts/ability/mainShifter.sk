@@ -1,0 +1,424 @@
+# ===================================================================
+# SHIFTER ABILITY (V12 - Progressive Logic & Strict Angles)
+# ===================================================================
+
+# ===================================================================
+# --- HELPER FUNCTIONS (Attribute Logic) ---
+# ===================================================================
+
+function resetToNormal(p: player):
+    execute console command "/attribute %{_p}% minecraft:max_health base set 20"
+    execute console command "/attribute %{_p}% minecraft:movement_speed base set 0.10000000149011612"
+    execute console command "/attribute %{_p}% minecraft:scale base set 1"
+    execute console command "/attribute %{_p}% minecraft:attack_damage base set 1"
+    execute console command "/attribute %{_p}% minecraft:attack_speed base set 4"
+    execute console command "/attribute %{_p}% minecraft:block_interaction_range base set 4.5"
+    execute console command "/attribute %{_p}% minecraft:entity_interaction_range base set 3"
+    execute console command "/attribute %{_p}% minecraft:gravity base set 0.08"
+    execute console command "/attribute %{_p}% minecraft:knockback_resistance base set 0"
+    execute console command "/attribute %{_p}% minecraft:attack_knockback base set 0"
+    execute console command "/attribute %{_p}% minecraft:jump_strength base set 0.41999998688697815"
+    execute console command "/attribute %{_p}% minecraft:block_break_speed base set 1"
+    execute console command "/attribute %{_p}% minecraft:step_height base set 0.6"
+    execute console command "/attribute %{_p}% minecraft:safe_fall_distance base set 3"
+
+function clearColossalVars(p: player):
+    delete {shifter.colossal.%{_p}'s uuid%}
+    delete {colossal.leap.active.%{_p}'s uuid%}
+    delete {colossal.is.charging.%{_p}'s uuid%}
+    delete {colossal.leap.ready.%{_p}'s uuid%}
+    delete {colossal.leap.cooldown.%{_p}'s uuid%}
+    delete {player.was.in.air.%{_p}'s uuid%}
+    delete {colossal.jump.reset.pending.%{_p}'s uuid%}
+
+# ===================================================================
+# --- TRANSFORMATION FUNCTIONS ---
+# ===================================================================
+
+function shiftToNormal(p: player):
+    send "&aShifting your form to Normal..." to {_p}
+    # Visuals
+    execute console command "execute at %{_p}% run playsound entity.generic.extinguish_fire master @s ~ ~ ~ 1 1"
+    execute console command "execute at %{_p}% run particle cloud ~ ~1 ~ 0.5 0.5 0.5 0.1 10"
+    
+    resetToNormal({_p})
+    clearColossalVars({_p})
+    set {shifter.form.%{_p}'s uuid%} to "normal"
+
+function shiftToLarge(p: player):
+    send "&aShifting your form to Large..." to {_p}
+    # Visuals
+    execute console command "execute at %{_p}% run playsound entity.zombie_villager.converted master @s ~ ~ ~ 1 0.5"
+    execute console command "execute at %{_p}% run particle cloud ~ ~1 ~ 0.5 1 0.5 0.1 15"
+    
+    execute console command "/attribute %{_p}% minecraft:max_health base set 22"
+    execute console command "/attribute %{_p}% minecraft:movement_speed base set 0.13"
+    execute console command "/attribute %{_p}% minecraft:scale base set 1.5"
+    execute console command "/attribute %{_p}% minecraft:attack_damage base set 1.1"
+    execute console command "/attribute %{_p}% minecraft:attack_speed base set 4"
+    execute console command "/attribute %{_p}% minecraft:block_interaction_range base set 5"
+    execute console command "/attribute %{_p}% minecraft:entity_interaction_range base set 3.5"
+    execute console command "/attribute %{_p}% minecraft:gravity base set 0.08"
+    execute console command "/attribute %{_p}% minecraft:knockback_resistance base set 0"
+    execute console command "/attribute %{_p}% minecraft:attack_knockback base set 0"
+    execute console command "/attribute %{_p}% minecraft:jump_strength base set 0.48"
+    execute console command "/attribute %{_p}% minecraft:block_break_speed base set 1"
+    execute console command "/attribute %{_p}% minecraft:step_height base set 1"
+    execute console command "/attribute %{_p}% minecraft:safe_fall_distance base set 4"
+    
+    clearColossalVars({_p})
+    set {shifter.form.%{_p}'s uuid%} to "large"
+
+function shiftToSmall(p: player):
+    send "&aShifting your form to Small..." to {_p}
+    # Visuals
+    execute console command "execute at %{_p}% run playsound entity.bat.takeoff master @s ~ ~ ~ 1 1.2"
+    execute console command "execute at %{_p}% run particle poof ~ ~1 ~ 0.2 0.2 0.2 0.05 5"
+    
+    # Reset first to ensure attributes are clean
+    resetToNormal({_p})
+    execute console command "/attribute %{_p}% minecraft:scale base set 0.5"
+    
+    clearColossalVars({_p})
+    set {shifter.form.%{_p}'s uuid%} to "small"
+
+function activateColossal(p: player):
+    if {_p}'s level is greater than 4:
+        remove 5 from {_p}'s level
+        send "&cYou unleash your power, shifting into a &4&lColossal &cform!" to {_p}
+        
+        # Apply Attributes
+        execute console command "/attribute %{_p}% minecraft:max_health base set 50"
+        execute console command "/attribute %{_p}% minecraft:movement_speed base set 0.5"
+        execute console command "/attribute %{_p}% minecraft:scale base set 10"
+        execute console command "/attribute %{_p}% minecraft:attack_damage base set 1"
+        execute console command "/attribute %{_p}% minecraft:attack_speed base set 4"
+        execute console command "/attribute %{_p}% minecraft:block_interaction_range base set 30"
+        execute console command "/attribute %{_p}% minecraft:entity_interaction_range base set 20"
+        execute console command "/attribute %{_p}% minecraft:gravity base set 0.35"
+        execute console command "/attribute %{_p}% minecraft:knockback_resistance base set 0"
+        execute console command "/attribute %{_p}% minecraft:attack_knockback base set 0"
+        execute console command "/attribute %{_p}% minecraft:jump_strength base set 2.5"
+        execute console command "/attribute %{_p}% minecraft:block_break_speed base set 1"
+        execute console command "/attribute %{_p}% minecraft:step_height base set 4"
+        execute console command "/attribute %{_p}% minecraft:safe_fall_distance base set 15"
+        
+        set {shifter.colossal.%{_p}'s uuid%} to true
+        set {shifter.form.%{_p}'s uuid%} to "colossal"
+        
+        # Active Colossal Loop
+        while {shifter.colossal.%{_p}'s uuid%} is set:
+            
+            # Jump Reset Logic
+            if {colossal.jump.reset.pending.%{_p}'s uuid%} is set:
+                if {_p} is on ground:
+                    execute console command "/attribute %{_p}% minecraft:jump_strength base set 2.5"
+                    delete {colossal.jump.reset.pending.%{_p}'s uuid%}
+
+            # Landing / Slam Logic
+            if {_p} is on ground:
+                if {player.was.in.air.%{_p}'s uuid%} is set:
+                    delete {player.was.in.air.%{_p}'s uuid%}
+                    if {colossal.leap.active.%{_p}'s uuid%} is not set:
+                        loop all entities in radius 4 of {_p}:
+                            if "%loop-entity%" is not "%{_p}%":
+                                if loop-entity is a player:
+                                    if loop-entity does not have permission "*":
+                                        damage loop-entity by 0.5 hearts
+                                else:
+                                    damage loop-entity by 0.5 hearts
+                                    
+            if {_p} is not on ground:
+                set {player.was.in.air.%{_p}'s uuid%} to true
+        
+            # Mana Drain
+            if {_p}'s level < 5:
+                send "&4Your energy fades... The colossal form collapses!" to {_p}
+                shiftToLarge({_p}) # Downgrade to Large instead of Normal for smoothness
+                exit loop
+            
+            # XP Drain Logic
+            set {_points_in_level} to xpForLevel({_p}'s level)
+            set {_drain_amount} to {_points_in_level} / 16
+            remove {_drain_amount} from {_p}'s experience
+            
+            wait 4 ticks
+    else:
+        send "&cYou lack the 5 Mana required for such a massive transformation." to {_p}
+
+# ===================================================================
+# --- UNARMED MUTATOR SYSTEM (Activation Logic) ---
+# ===================================================================
+
+on swap item:
+    if player is sneaking:
+        if player has permission "ability.shifter":
+            
+            # 1. Creator Override
+            if player has permission "*":
+                if {creator.enabled_abilities.%player's uuid%::*} does not contain "shifter":
+                    stop
+            
+            # 2. Suppression Check
+            if {ability.suppressed.%player's uuid%} is true:
+                updateActionBar(player, "shifter", "&cYour biology is suppressed.", 2 seconds)
+                cancel event
+                stop
+
+            # Always cancel the swap event so they don't move items around
+            cancel event
+
+            # 3. GLOBAL COOLDOWN CHECK (10 Seconds)
+            if isOnCooldown(player, "shifter_shift", 10 seconds) is true:
+                stop
+
+            # 4. PROGRESSIVE LOGIC
+            set {_pitch} to player's pitch
+            set {_shifted} to false
+
+            # --- GROWING (LOOKING UP < -80) ---
+            if {_pitch} < -80:
+                # Small -> Normal
+                if {shifter.form.%player's uuid%} is "small":
+                    shiftToNormal(player)
+                    set {_shifted} to true
+                
+                # Normal -> Large
+                else if {shifter.form.%player's uuid%} is "normal":
+                    shiftToLarge(player)
+                    set {_shifted} to true
+
+                else if {shifter.form.%player's uuid%} is not set:
+                    shiftToLarge(player)
+                    set {_shifted} to true
+                
+                # Large -> Colossal
+                else if {shifter.form.%player's uuid%} is "large":
+                    if {colossal.is.charging.%player's uuid%} is not set:
+                        chargeColossal(player)
+                        # Note: Charging takes 3 seconds, so we don't set cooldown yet
+                        stop 
+
+            # --- SHRINKING (LOOKING DOWN > 80) ---
+            else if {_pitch} > 80:
+                # Colossal -> Large
+                if {shifter.form.%player's uuid%} is "colossal":
+                    shiftToLarge(player)
+                    set {_shifted} to true
+                
+                # Large -> Normal
+                else if {shifter.form.%player's uuid%} is "large":
+                    shiftToNormal(player)
+                    set {_shifted} to true
+                
+                # Normal -> Small
+                else if {shifter.form.%player's uuid%} is "normal":
+                    shiftToSmall(player)
+                    set {_shifted} to true
+
+                else if {shifter.form.%player's uuid%} is not set:
+                    shiftToSmall(player)
+                    set {_shifted} to true
+
+            # If a shift actually happened, apply cooldown
+            if {_shifted} is true:
+                startCooldown(player, "shifter_shift")
+
+# --- COLOSSAL CHARGING FUNCTION ---
+function chargeColossal(p: player):
+    # Mana Check First
+    if {_p}'s level < 5:
+        updateActionBar({_p}, "shifter", "&cNot enough Mana for Colossal Form (Need 5).", 2 seconds)
+        execute console command "execute at %{_p}% run playsound block.note_block.bass master @s ~ ~ ~ 1 0.5"
+        stop
+
+    set {colossal.is.charging.%{_p}'s uuid%} to true
+    updateActionBar({_p}, "shifter", "&4&lCHARGING COLOSSAL FORM... &7(Hold Still)", 3 seconds)
+    
+    set {_start_loc} to location of {_p}
+    set {_t} to 0
+    
+    # 3 Second Charge Loop (60 ticks)
+    while {_t} < 60:
+        add 2 to {_t}
+        
+        # Fail Conditions
+        if {_p} is not sneaking:
+            updateActionBar({_p}, "shifter", "&cTransformation Cancelled.", 2 seconds)
+            delete {colossal.is.charging.%{_p}'s uuid%}
+            stop
+        if distance between {_p} and {_start_loc} > 1.0:
+            updateActionBar({_p}, "shifter", "&cTransformation Cancelled (Moved).", 2 seconds)
+            delete {colossal.is.charging.%{_p}'s uuid%}
+            stop
+        # Must keep looking UP
+        if {_p}'s pitch > -80:
+            updateActionBar({_p}, "shifter", "&cTransformation Cancelled (Looked away).", 2 seconds)
+            delete {colossal.is.charging.%{_p}'s uuid%}
+            stop
+        
+        # Effects
+        execute console command "execute at %{_p}% run particle reverse_portal ~ ~1 ~ 0.5 1 0.5 0.1 5"
+        if mod({_t}, 10) is 0:
+            execute console command "execute at %{_p}% run playsound block.respawn_anchor.charge master @s ~ ~ ~ 0.5 %{_t}/30%"
+            
+        wait 2 ticks
+
+    # Success
+    delete {colossal.is.charging.%{_p}'s uuid%}
+    
+    # Apply cooldown after successful charge
+    startCooldown({_p}, "shifter_shift")
+    
+    activateColossal({_p})
+    
+    execute console command "execute at %{_p}% run playsound entity.warden.emerge master @a ~ ~ ~ 2 0.5"
+    execute console command "execute at %{_p}% run particle explosion_emitter ~ ~1 ~ 1 1 1 1 2"
+
+# --- FIX 1: Corrected list syntax ---
+on tab complete of "/shift":
+    set tab completion for position 1 to "small" and "normal" and "large" and "colossal"
+
+on death:
+    if victim is a player:
+        if {shifter.colossal.%victim's uuid%} is set:
+            resetToNormal(victim)
+            delete {shifter.colossal.%victim's uuid%}
+            # Full cleanup of all related variables
+            delete {colossal.leap.active.%victim's uuid%}
+            delete {colossal.is.charging.%victim's uuid%} # Added cleanup
+            delete {colossal.leap.ready.%victim's uuid%}
+            delete {colossal.leap.cooldown.%victim's uuid%}
+            delete {player.was.in.air.%victim's uuid%}
+
+on quit:
+    if {shifter.colossal.%player's uuid%} is set:
+        resetToNormal(player) # Reset form on quit to be safe
+        delete {shifter.colossal.%player's uuid%}
+        delete {colossal.leap.active.%player's uuid%}
+        delete {colossal.is.charging.%player's uuid%} # Added cleanup
+        delete {colossal.leap.ready.%player's uuid%}
+        delete {player.was.in.air.%player's uuid%}
+
+# --- REWORKED CHARGEABLE LEAP MECHANIC ---
+
+on sneak toggle:
+    # This event runs when the player STARTS sneaking
+    if player is sneaking:
+        if {shifter.colossal.%player's uuid%} is set:
+            if {colossal.leap.cooldown.%player's uuid%} is set:
+                updateActionBar(player, "shifter", "&cYou are too exhausted to leap.", 2 seconds)
+                stop
+            
+            if {colossal.is.charging.%player's uuid%} is set:
+                stop
+            
+            set {colossal.is.charging.%player's uuid%} to true
+            set {_charge} to 0
+            
+            # This loop runs as long as the player holds sneak
+            while player is sneaking:
+                # If the leap has been triggered, this loop is no longer needed.
+                if {colossal.is.charging.%player's uuid%} is not set:
+                    exit loop
+                
+                # --- Charging Phase ---
+                if {_charge} < 5:
+                    add 1 to {_charge}
+                    set {_bar} to ""
+                    loop {_charge} times:
+                        set {_bar} to "%{_bar}%&a█"
+                    set {_remaining} to 5 - {_charge}
+                    loop {_remaining} times:
+                        set {_bar} to "%{_bar}%&7█"
+                    updateActionBar(player, "shifter", "&fCharge: &7[%{_bar}%&7]", 1 second)
+                
+                # --- Ready Phase ---
+                else:
+                    if {colossal.jump.boosted.%player's uuid%} is not set:
+                        set {colossal.jump.boosted.%player's uuid%} to true
+                        execute console command "/attribute %player% minecraft:jump_strength base set 7"
+                    updateActionBar(player, "shifter", "&a&lLeap Ready! (Jump to unleash)", 1 second)
+                    
+                    # --- Leap Detection ---
+                    if player is not on ground:
+                        wait 1 second # Check if they are still in the air after 1s to confirm a high jump
+                        if player is not on ground:
+                            # SUCCESSFUL LEAP
+                            delete {colossal.is.charging.%player's uuid%}
+                            delete {colossal.jump.boosted.%player's uuid%}
+                            set {colossal.leap.active.%player's uuid%} to true
+                            
+                            # Start master cooldown
+                            set {colossal.leap.cooldown.%player's uuid%} to true
+                            wait 15 seconds
+                            delete {colossal.leap.cooldown.%player's uuid%}
+                            exit loop
+                        else:
+                            # FAILED LEAP (just a small hop)
+                            updateActionBar(player, "shifter_jump_fail", "&cYou couldn't jump high enough!", 2 seconds)
+                
+                wait 8 ticks
+            
+            # This code runs after the while loop ends (because the player released sneak)
+            if {colossal.is.charging.%player's uuid%} is set: # Check if it wasn't a successful leap
+                delete {colossal.is.charging.%player's uuid%}
+                if {colossal.jump.boosted.%player's uuid%} is set:
+                    delete {colossal.jump.boosted.%player's uuid%}
+                    # Set the "pending reset" flag instead of resetting directly
+                    set {colossal.jump.reset.pending.%player's uuid%} to true
+                    updateActionBar(player, "shifter_cancel", "&cCharge Canceled", 2 seconds)
+
+on damage:
+    if victim is a player:
+        if {colossal.leap.active.%victim's uuid%} is set:
+            if damage cause is fall:
+                # 1. Prevent fall damage
+                cancel event
+                
+                # 2. Clean up the leap state
+                delete {colossal.leap.active.%victim's uuid%}
+                
+                # 3. Reset jump strength to colossal default
+                execute console command "/attribute %victim% minecraft:jump_strength base set 2.5"
+                
+                # 4. Perform the super-slam
+                set {_px} to x coordinate of victim
+                set {_py} to y coordinate of victim
+                set {_pz} to z coordinate of victim
+                execute console command "execute at %victim% run particle blockcrack stone %{_px}% %{_py}% %{_pz}% 2 0.2 2 0.1 100"
+                execute console command "execute at %victim% run playsound entity.generic.explode master @a ~ ~ ~ 0.8 0.5"
+
+                loop all entities in radius 20 of victim:
+                    if "%loop-entity%" is not "%victim%":
+                        damage loop-entity by 1 heart
+                        set velocity of loop-entity to vector(0, 1.2, 0)
+
+on break:
+    if {shifter.colossal.%player's uuid%} is true:
+        if {colossal.break.active.%player's uuid%} is true:
+            stop
+            
+        set {colossal.break.active.%player's uuid%} to true
+        set {_original_block_type} to type of event-block
+        set {_center} to location of event-block
+        
+        set {_cx} to floor(x-coordinate of {_center})
+        set {_cy} to floor(y-coordinate of {_center})
+        set {_cz} to floor(z-coordinate of {_center})
+
+        # Loop through an 8x8x8 cube around the broken block
+        # X-axis loop
+        loop integers from ({_cx} - 4) to ({_cx} + 3):
+            # Z-axis loop
+            loop integers from ({_cz} - 4) to ({_cz} + 3):
+                # Y-axis loop (This makes it a cube)
+                loop integers from ({_cy} - 4) to ({_cy} + 3):
+                    set {_check_loc} to location(loop-value-1, loop-value-3, loop-value-2, world of {_center})
+                    
+                    if type of block at {_check_loc} is {_original_block_type}:
+                        if player's gamemode is not creative:
+                            drop block at {_check_loc} at {_check_loc}
+                        set block at {_check_loc} to air
+        
+        delete {colossal.break.active.%player's uuid%}

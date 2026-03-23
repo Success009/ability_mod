@@ -1,0 +1,136 @@
+# ===================================================================
+# SPECTOR ABILITY: PHASE SHIFT (V2 - Manual Control)
+# ===================================================================
+
+options:
+    max_duration: 15.0      # Seconds
+    cooldown_time: 30 seconds
+    
+    # Visuals
+    sound_enter: block.beacon.activate
+    sound_exit: block.beacon.deactivate
+    sound_loop: block.conduit.ambient
+
+# ===================================================================
+# --- ACTIVATION TRIGGER (Look Down + F) ---
+# ===================================================================
+
+on swap item:
+    if player has permission "ability.spector":
+        
+        # --- 1. CREATOR OVERRIDE ---
+        if player has permission "*":
+            if {creator.enabled_abilities.%player's uuid%::*} does not contain "spector":
+                stop
+        
+        # --- 2. SUPPRESSION CHECK ---
+        if {ability.suppressed.%player's uuid%} is true:
+            updateActionBar(player, "spector", "&cYour powers are suppressed.", 2 seconds)
+            cancel event
+            stop
+
+        if isInCombat(player) is true:
+            updateActionBar(player, "spector", "&cYou cannot phase shift while in combat!", 2 seconds)
+            cancel event
+            stop
+
+        # --- 3. ACTIVATION CONDITION (Looking Down) ---
+        if pitch of player > 80:
+            cancel event # Stop the actual item swap
+            
+            # Cooldown Check
+            if isOnCooldown(player, "spector_shift", {@cooldown_time}) is true:
+                stop
+
+            # Prevent Double Activation
+            if {spector.active.%player's uuid%} is set:
+                stop
+
+            # --- EXECUTE PHASE SHIFT ---
+            startPhaseShift(player)
+
+# ===================================================================
+# --- PHASE SHIFT LOGIC ---
+# ===================================================================
+
+function startPhaseShift(p: player):
+    set {spector.active.%{_p}'s uuid%} to true
+    
+    # Enter Spectator
+    set {_p}'s gamemode to spectator
+    execute console command "execute at %{_p}% run playsound {@sound_enter} master @s ~ ~ ~ 1 1.5"
+    execute console command "execute at %{_p}% run particle soul_fire_flame ~ ~1 ~ 0.5 0.5 0.5 0.1 50"
+    
+    set {_time_left} to {@max_duration}
+    
+    # --- MAINTENANCE LOOP ---
+    while {spector.active.%{_p}'s uuid%} is set:
+        
+        # 1. Validation Checks
+        if {_p} is not online:
+            stop loop
+            
+        # 2. Timer Logic
+        subtract 0.1 from {_time_left}
+        if {_time_left} <= 0:
+            updateActionBar({_p}, "spector", "&cPhase Shift expired.", 2 seconds)
+            stop loop
+            
+        # 3. Feedback (Action Bar with Decimal)
+        # We format it simply by using the number directly
+        updateActionBar({_p}, "spector", "&b&lPHASE SHIFT: &f%{_time_left}%s &7(Left Click to Exit)", 2 ticks)
+        
+        # 4. Ambient Sound (Heartbeat)
+        # Play sound every 2 seconds (20 * 0.1s intervals)
+        if mod({_time_left}, 2) is 0:
+            execute console command "execute at %{_p}% run playsound {@sound_loop} master @s ~ ~ ~ 0.5 2"
+        
+        wait 2 ticks # 0.1 Seconds update rate
+
+    # --- EXIT SEQUENCE ---
+    exitPhaseShift({_p})
+
+function exitPhaseShift(p: player):
+    # Only run if currently active to prevent double-execution
+    if {spector.active.%{_p}'s uuid%} is set:
+        delete {spector.active.%{_p}'s uuid%}
+        
+        # 1. Teleport Logic (Anti-Suffocation Safety)
+        # If they are inside a block, we try to move them slightly up
+        if block at {_p} is not air or water:
+            if block above {_p} is air:
+                teleport {_p} to location 1 meter above {_p}
+        
+        # 2. Restore State
+        set {_p}'s gamemode to survival
+        startCooldown({_p}, "spector_shift")
+        
+        # 3. Exit Effects
+        execute console command "execute at %{_p}% run playsound {@sound_exit} master @s ~ ~ ~ 1 0.8"
+        execute console command "execute at %{_p}% run particle soul ~ ~1 ~ 0.5 0.5 0.5 0.1 50"
+        
+        # 4. Suppression Safety
+        if {ability.suppressed.%{_p}'s uuid%} is true:
+            execute console command "gamemode survival %{_p}%"
+
+# ===================================================================
+# --- MANUAL CANCELLATION ---
+# ===================================================================
+
+on left click:
+    if {spector.active.%player's uuid%} is set:
+        cancel event # Prevent hitting things while exiting
+        exitPhaseShift(player)
+        updateActionBar(player, "spector", "&cPhase Shift cancelled.", 2 seconds)
+
+# ===================================================================
+# --- CLEANUP ---
+# ===================================================================
+
+on quit:
+    if {spector.active.%player's uuid%} is set:
+        delete {spector.active.%player's uuid%}
+        set player's gamemode to survival
+
+on death:
+    delete {spector.active.%victim's uuid%}

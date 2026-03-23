@@ -1,0 +1,246 @@
+# ===================================================================
+# EXPERIMENT: DOMAIN EXPANSION (V9 - LuckPerms Suppression)
+# ===================================================================
+
+options:
+    domain_radius: 20
+    domain_duration: 30 seconds
+    expansion_speed: 3 ticks
+    
+    # End Theme Blocks
+    block_shell: crying obsidian
+    block_floor: end stone
+    block_decor: end stone bricks
+    block_accent: obsidian
+
+# ===================================================================
+# --- COMMANDS ---
+# ===================================================================
+
+command /testdomain:
+    permission: ability.op
+    trigger:
+        startDomainExpansion(player, location of player)
+
+# ===================================================================
+# --- HELPER: ABILITY GROUP SWAPPER ---
+# ===================================================================
+
+function suppressPlayerAbilities(p: player):
+    # List of all ability groups (lowercase to match LuckPerms)
+    set {_abilities::*} to "enchanter", "immortal", "wizard", "teleporter", "flotter", "strengther", "mole", "reaper", "locator", "shifter" and "spector"
+    
+    loop {_abilities::*}:
+        set {_ability} to loop-value
+        # Check if player is in this group (LuckPerms standard perm: group.<name>)
+        if {_p} has permission "group.%{_ability}%":
+            
+            # Save original group
+            set {domain.original_group.%{_p}%} to {_ability}
+            
+            # Swap to disabled group
+            execute console command "lp user %{_p}% parent set %{_ability}%-disabled"
+            updateActionBar({_p}, "dragon_seal", "&cYour %{_ability}% powers have been sealed!", 2 seconds)
+            stop # Only process one main ability group
+
+function restorePlayerAbilities(p: player):
+    if {domain.original_group.%{_p}%} is set:
+        set {_ability} to {domain.original_group.%{_p}%}
+        
+        # Restore original group
+        execute console command "lp user %{_p}% parent set %{_ability}%"
+        
+        delete {domain.original_group.%{_p}%}
+        updateActionBar({_p}, "dragon_restore", "&aYour powers return.", 2 seconds)
+
+# ===================================================================
+# --- THE DOMAIN LOGIC ---
+# ===================================================================
+
+function startDomainExpansion(p: player, origin: location):
+    if {domain.active.%{_p}%} is set:
+        send "&cYou already have an active domain!" to {_p}
+        stop
+
+    set {domain.active.%{_p}%} to true
+    set {domain.center.%{_p}%} to {_origin}
+    set {_center} to {_origin}
+    
+    # --- 1. EGG LOGIC ---
+    loop all dropped items in radius 2 of {_center}:
+        if item of loop-entity is dragon egg:
+            delete loop-entity
+            give dragon egg to {_p}
+    
+    # --- 2. INITIAL FREEZE & SUPPRESSION ---
+    loop all players:
+        if distance between loop-player and {_center} <= {@domain_radius}:
+            if loop-player is not {_p}:
+                set {domain.frozen.%loop-player%} to true
+                
+                # Lock Movement
+                execute console command "attribute %loop-player% minecraft:movement_speed base set 0"
+                execute console command "attribute %loop-player% minecraft:jump_strength base set 0"
+                
+                # --- NEW: LuckPerms Suppression ---
+                suppressPlayerAbilities(loop-player)
+                
+                send title "&5&k|| &d&lDIMENSIONAL RIFT &5&k||" with subtitle "&7Your abilities are nullified." to loop-player for 3 seconds
+                execute console command "execute at %loop-player% run playsound entity.warden.sonic_boom master @s ~ ~ ~ 1 0.5"
+
+    # --- 3. EXPANSION LOOP ---
+    set {_r} to 1
+    
+    while {_r} <= {@domain_radius}:
+        if {domain.active.%{_p}%} is not set:
+            stop loop
+            
+        execute console command "execute at %{_p}% run playsound block.respawn_anchor.set_spawn master @a ~ ~ ~ 2 0.5"
+        
+        loop blocks in radius {_r} of {_center}:
+            if distance between loop-block and {_center} >= ({_r} - 1):
+                set {_transform} to false
+                set {_new_type} to air
+                
+                # A. SHELL
+                if distance between loop-block and {_center} >= ({@domain_radius} - 1):
+                    if loop-block is not bedrock:
+                        set {_transform} to true
+                        set {_new_type} to {@block_shell}
+                
+                # B. INTERIOR
+                else:
+                    if loop-block is not air or void air or cave air:
+                        if loop-block is not bedrock:
+                            if block above loop-block is air:
+                                set {_is_surface} to true
+                            else if block below loop-block is air:
+                                set {_is_surface} to true
+                            else if block north of loop-block is air:
+                                set {_is_surface} to true
+                            else if block south of loop-block is air:
+                                set {_is_surface} to true
+                            else if block east of loop-block is air:
+                                set {_is_surface} to true
+                            else if block west of loop-block is air:
+                                set {_is_surface} to true
+                            else:
+                                set {_is_surface} to false
+                            
+                            if {_is_surface} is true:
+                                set {_transform} to true
+                                if chance of 70%:
+                                    set {_new_type} to {@block_floor}
+                                else if chance of 20%:
+                                    set {_new_type} to {@block_decor}
+                                else:
+                                    set {_new_type} to {@block_accent}
+
+                if {_transform} is true:
+                    if loop-block is chest or trapped chest or barrel or shulker box or furnace or blast furnace or smoker or hopper or dispenser or dropper or brewing stand:
+                        continue loop
+                        
+                    if {domain.restore.%{_p}%::%location of loop-block%} is not set:
+                        set {domain.restore.%{_p}%::%location of loop-block%} to type of loop-block
+                    
+                    set loop-block to {_new_type}
+
+        add 1 to {_r}
+        wait {@expansion_speed}
+    
+    # --- 4. DOMAIN COMPLETE ---
+    broadcast "&5The Domain is complete!"
+    
+    loop all players:
+        if {domain.frozen.%loop-player%} is set:
+            delete {domain.frozen.%loop-player%}
+            execute console command "attribute %loop-player% minecraft:movement_speed base reset"
+            execute console command "attribute %loop-player% minecraft:jump_strength base reset"
+            execute console command "effect give %loop-player% minecraft:darkness 25 0 true"
+            updateActionBar(loop-player, "dragon_survive", "&cSurvive.", 2 seconds)
+
+    # --- 5. DURATION ---
+    wait {@domain_duration}
+    
+    # --- 6. FADE ---
+    removeDomain({_p})
+
+function removeDomain(p: player):
+    if {domain.active.%{_p}%} is not set:
+        stop
+    
+    set {_center} to {domain.center.%{_p}%}
+    broadcast "&5The Rift collapses..."
+    execute console command "execute at %{_p}% run playsound entity.enderman.teleport master @a ~ ~ ~ 1 0.5"
+    
+    set {_r} to {@domain_radius}
+    
+    while {_r} > 0:
+        loop all players:
+            if distance between loop-player and {_center} >= {_r}:
+                # Restore Abilities for players leaving the shrinking sphere
+                restorePlayerAbilities(loop-player)
+                execute console command "effect clear %loop-player% minecraft:darkness"
+
+        loop blocks in radius {_r} of {_center}:
+            if distance between loop-block and {_center} >= ({_r} - 1):
+                set {_loc} to location of loop-block
+                if {domain.restore.%{_p}%::%{_loc}%} is set:
+                    set block at {_loc} to {domain.restore.%{_p}%::%{_loc}%}
+                    delete {domain.restore.%{_p}%::%{_loc}%}
+        
+        subtract 1 from {_r}
+        wait 1 tick
+        
+    delete {domain.active.%{_p}%}
+    delete {domain.center.%{_p}%}
+    delete {domain.restore.%{_p}%::*}
+    loop all players:
+        delete {domain.frozen.%loop-player%}
+        # Ensure abilities are restored for anyone remaining
+        restorePlayerAbilities(loop-player)
+
+# ===================================================================
+# --- PROTECTION & RESTORE ---
+# ===================================================================
+on break:
+    loop {domain.active::*}:
+        set {_owner} to loop-index parsed as player
+        if {domain.restore.%{_owner}%::%location of event-block%} is set:
+            cancel event
+            updateActionBar(player, "dragon_immune", "&5This reality is immutable.", 2 seconds)
+            stop
+
+on place:
+    loop {domain.active::*}:
+        set {_owner} to loop-index parsed as player
+        if distance between event-block and {domain.center.%{_owner}%} <= {@domain_radius}:
+            cancel event
+            updateActionBar(player, "dragon_reject", "&5The Rift rejects external matter.", 2 seconds)
+            stop
+
+on load:
+    delete {domain.active::*}
+    loop all players:
+        if {domain.frozen.%loop-player%} is set:
+            delete {domain.frozen.%loop-player%}
+            execute console command "attribute %loop-player% minecraft:movement_speed base reset"
+            execute console command "attribute %loop-player% minecraft:jump_strength base reset"
+            restorePlayerAbilities(loop-player)
+
+command /domain:fix:
+    permission: ability.op
+    trigger:
+        send "&cEmergency Restore initiated..."
+        loop indices of {domain.restore::*}:
+            set {_p} to loop-value
+            loop indices of {domain.restore.%{_p}%::*}:
+                set {_loc} to loop-value-2
+                set block at {_loc} to {domain.restore.%{_p}%::%{_loc}%}
+            delete {domain.restore.%{_p}%::*}
+        
+        # Reset everyone's abilities just in case
+        loop all players:
+            restorePlayerAbilities(loop-player)
+            
+        send "&aMap and Abilities restored."

@@ -1,0 +1,88 @@
+# ===================================================================
+# GLOBAL COMBAT SYSTEM (V3.1 - Visual Overhaul)
+# ===================================================================
+
+on damage of player:
+    if attacker is a player:
+        enterCombat(attacker, victim)
+        enterCombat(victim, attacker)
+
+on damage of player:
+    if damage cause is projectile:
+        if attacker is a player:
+            enterCombat(attacker, victim)
+            enterCombat(victim, attacker)
+
+function enterCombat(p: player, opponent: player):
+    set {combat.timer.%{_p}'s uuid%} to 30
+    set {combat.opponent.%{_p}'s uuid%} to name of {_opponent}
+    
+    # Force immediate update
+    updateCombatDisplay({_p})
+
+# --- Timer Task ---
+every 1 second:
+    loop all players:
+        if {combat.timer.%loop-player's uuid%} is set:
+            subtract 1 from {combat.timer.%loop-player's uuid%}
+            
+            if {combat.timer.%loop-player's uuid%} <= 0:
+                exitCombat(loop-player)
+            else:
+                updateCombatDisplay(loop-player)
+
+function exitCombat(p: player):
+    delete {combat.timer.%{_p}'s uuid%}
+    delete {combat.opponent.%{_p}'s uuid%}
+    
+    # Remove from Scoreboard Manager
+    removeScoreboard({_p}, "combat")
+    
+    updateActionBar({_p}, "combat", "&a&lCOMBAT EXPIRED", 2 seconds)
+
+function updateCombatDisplay(p: player):
+    set {_time} to {combat.timer.%{_p}'s uuid%}
+    set {_opp} to {combat.opponent.%{_p}'s uuid%}
+    
+    # Dynamic Combat Display
+    updateScoreboard({_p}, "combat", "&4&l⚔ COMBAT ⚔||&c%{_opp}%||&e%{_time}%s remaining", 100, 2 seconds)
+
+# --- Utility Function ---
+function isInCombat(p: player) :: boolean:
+    if {combat.timer.%{_p}'s uuid%} is set:
+        return true
+    return false
+
+# --- Initialization ---
+on load:
+    loop all players:
+        if {combat.timer.%loop-player's uuid%} is not set:
+            clear fastboard of loop-player
+
+on join:
+    if {combat.timer.%player's uuid%} is set:
+        updateCombatDisplay(player)
+    else:
+        clear fastboard of player
+
+on quit:
+    if {combat.timer.%player's uuid%} is set:
+        set {_opp} to {combat.opponent.%player's uuid%}
+        broadcast "&8&m---------------------------------------"
+        broadcast "   &c&lCOMBAT LOG DETECTED"
+        broadcast "   &f%player% &7has fled from &c&l%{_opp}%&7!"
+        broadcast "&8&m---------------------------------------"
+        
+        # Clean up variables to prevent ghost data
+        delete {combat.timer.%player's uuid%}
+        delete {combat.opponent.%player's uuid%}
+
+# ===================================================================
+# --- TEST COMMAND ---
+# ===================================================================
+command /combat:test:
+    permission: ability.op
+    trigger:
+        enterCombat(player, player)
+        make player damage player by 0.01
+        send "&c[Test] Combat mode activated (30s) & Hit Simulated." to player

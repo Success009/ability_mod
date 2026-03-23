@@ -1,0 +1,137 @@
+on entity potion effect modification:
+    if event-entity has permission "ability.wizard":
+        if {ability.suppressed.%event-entity's uuid%} is true:
+            stop
+        if event-entity does not have permission "*":
+            if event-potion effect type = poison or darkness or slowness or weakness or mining fatigue or wither or hunger or levitation or unluck or nausea or instant damage or blindness or infested or weaving or oozing:
+                cancel event
+                updateActionBar(event-entity, "wizard_prevent", "&aMagic has prevented &c%event-potion effect type%&a!", 2 seconds)
+
+command /bless <player> <text>:
+    permission: ability.wizard
+    cooldown message: &c&lYou need %remaining time% To restore your mana.
+    cooldown: 6 seconds
+    trigger:
+        if {ability.suppressed.%player's uuid%} is true:
+            send "&cYour powers are suppressed by a powerful aura." to player
+            stop
+        set {_target} to arg-1
+        # --- Range and Online Check ---
+        if {_target} is not online:
+            updateActionBar(player, "wizard_error", "&c&l&oThat player is not online.", 2 seconds)
+            stop
+        if distance between player and {_target} > 100:
+            updateActionBar(player, "wizard_error", "&c&l&oYour target is out of range (100 blocks max).", 2 seconds)
+            stop
+        # --- End of checks ---
+
+        if {_type} is "movement":
+            if player's level > 4:
+                execute console command "ppo %player% add composter beam"
+                wait 2.2 seconds
+                execute console command "ppo %player% reset"
+                updateActionBar(player, "wizard_success", "&a&l&oYou successfully casted", 2 seconds)
+                execute console command "minecraft:xp add %player% -4 levels"
+                execute console command "minecraft:effect give %{_target}% minecraft:speed 480 1 true"
+                execute console command "minecraft:effect give %{_target}% minecraft:jump_boost 480 1 true"
+                send "&aYou feel faster and more agile!" to {_target}
+                stop
+            else:
+                updateActionBar(player, "wizard_mana", "&c&l&oYou lack the mana for this cast.", 2 seconds)
+
+        else if {_type} is "power":
+            if player's level > 4:
+                execute console command "ppo %player% add composter beam"
+                wait 2.2 seconds
+                execute console command "ppo %player% reset"
+                updateActionBar(player, "wizard_success", "&a&l&oYou successfully casted", 2 seconds)
+                execute console command "minecraft:xp add %player% -4 levels"
+                execute console command "minecraft:effect give %{_target}% minecraft:strength 60 1 true"
+                execute console command "minecraft:effect give %{_target}% minecraft:haste 240 1 true"
+                send "&aYou feel stronger and more efficient!" to {_target}
+                stop
+            else:
+                updateActionBar(player, "wizard_mana", "&c&l&oYou lack the mana for this cast.", 2 seconds)
+
+        else if {_type} is "charisma":
+            if player's level > 6:
+                execute console command "ppo %player% add composter beam"
+                wait 2.2 seconds
+                execute console command "ppo %player% reset"
+                updateActionBar(player, "wizard_success", "&a&l&oYou successfully casted", 2 seconds)
+                execute console command "minecraft:xp add %player% -6 levels"
+                execute console command "minecraft:effect give %{_target}% minecraft:hero_of_the_village 10 255 true"
+                updateActionBar({_target}, "wizard_bless", "&a&l&oYou have been blessed by the Wizard", 2 seconds)
+                stop
+            else:
+                updateActionBar(player, "wizard_mana", "&c&l&oYou lack the mana for this cast.", 2 seconds)
+        
+        else if {_type} is "vision":
+            if player's level > 2:
+                execute console command "ppo %player% add composter beam"
+                wait 2.2 seconds
+                execute console command "ppo %player% reset"
+                updateActionBar(player, "wizard_success", "&a&l&oYou successfully casted", 2 seconds)
+                execute console command "minecraft:xp add %player% -2 levels"
+                
+                # --- NEW: Reveal all nearby entities ---
+                loop all entities in radius 30 of {_target}:
+                    if loop-entity is not {_target}:
+                        # Apply glowing for 60 seconds with no particles.
+                        execute console command "effect give %uuid of loop-entity% glowing 8 0 true"
+                
+                send "&aThe world around you becomes illuminated by your arcane sight!" to {_target}
+                stop
+            else:
+                updateActionBar(player, "wizard_mana", "&c&l&oYou lack the mana for this cast.", 2 seconds)
+        
+        else if {_type} is "heal":
+            if player's level > 3:
+                execute console command "ppo %player% add composter beam"
+                wait 2.2 seconds
+                execute console command "ppo %player% reset"
+                updateActionBar(player, "wizard_success", "&a&l&oYou successfully casted", 2 seconds)
+                updateActionBar({_target}, "wizard_heal", "&a&l&oYou have been healed by the Wizard", 2 seconds)
+                execute console command "minecraft:xp add %player% -3 levels"
+                execute console command "minecraft:effect give %{_target}% minecraft:regeneration 2 4 true"
+                stop
+            else:
+                updateActionBar(player, "wizard_mana", "&c&l&oYou lack the mana for this cast.", 2 seconds)
+        else:
+            send "&cYou currently lack the intelligence to cast that." to player
+
+on tab complete of "/bless":
+    set tab completion for position 2 to "movement" and "power" and "charisma" and "heal" and "vision"
+
+command /curse <player>:
+    permission: ability.wizard
+    cooldown message: &c&lYou need %remaining time% To restore your mana.
+    cooldown: 120 seconds
+    trigger:
+        if {ability.suppressed.%player's uuid%} is true:
+            send "&cYour powers are suppressed by a powerful aura." to player
+            stop
+        set {_target} to arg-1
+
+        # --- Range and Online Check ---
+        if {_target} is not online:
+            updateActionBar(player, "wizard_error", "&c&l&oThat player is not online.", 2 seconds)
+            stop
+        if distance between player and {_target} > 100:
+            updateActionBar(player, "wizard_error", "&c&l&oYour target is out of range (100 blocks max).", 2 seconds)
+            stop
+        # --- End of checks ---
+
+        if player's level > 10:
+            execute console command "ppo %player% add damage_indicator rings"
+            wait 2.2 seconds
+            execute console command "ppo %player% reset"
+            updateActionBar(player, "wizard_curse", "Cursed applied", 2 seconds)
+            execute console command "minecraft:xp add %player% -10 levels"
+            execute console command "minecraft:effect give %{_target}% minecraft:wither 5 2 true"
+            execute console command "minecraft:effect give %{_target}% minecraft:darkness 5 1 true"
+            execute console command "minecraft:effect give %{_target}% minecraft:slowness 5 3 true"
+            updateActionBar({_target}, "wizard_cursed", "&4&l&oYou have been cursed by Wizard!", 2 seconds)
+            stop
+        else:
+            updateActionBar(player, "wizard_mana", "&c&l&oYou lack the mana for this cast.", 2 seconds)

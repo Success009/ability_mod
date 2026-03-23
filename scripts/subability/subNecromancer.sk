@@ -1,0 +1,139 @@
+# ===================================================================
+# NECROMANCER ABILITY (V8 - FINAL COLLECTION LOGIC)
+# ===================================================================
+
+on load:
+    execute console command "team add necro"
+    wait 1 tick
+    execute console command "team modify necro friendlyFire false"
+
+# --- RECURSIVE LEASH FUNCTION (Unchanged) ---
+function leashMinion(minion: entity, owner: player):
+    if {_minion} is not set:
+        stop
+    if {_owner} is not online:
+        stop
+    if {_minion} is alive:
+        if distance between {_minion} and {_owner} > 40:
+            teleport {_minion} to location 2 blocks behind {_owner}
+        wait 4 seconds
+        leashMinion({_minion}, {_owner})
+
+# --- STEP 1: LINGERING SOUL CREATION ---
+on death of a monster:
+    if attacker is a player:
+        set {_killer} to attacker
+        if {_killer} has permission "sub.necromancer":
+            if {_killer} does not have permission "*":
+                set {_victim_type} to type of victim
+                if {_victim_type} is not an ender dragon:
+                    if {_victim_type} is not a wither:
+                        set {necro.lingering_soul.%{_killer}'s uuid%.type} to "%{_victim_type}%"
+                        updateActionBar({_killer}, "sub", "&8&l&oYou feel a lingering presence...", 2 seconds)
+                        wait 30 seconds
+                        if {necro.lingering_soul.%{_killer}'s uuid%} is set:
+                            delete {necro.lingering_soul.%{_killer}'s uuid%}
+                            updateActionBar({_killer}, "sub", "&7The presence fades away.", 2 seconds)
+
+# --- STEP 2 & 3: SOUL COLLECTION & MINION SUMMONING ---
+on right click:
+    if player's tool is set:
+        if uncolored lore of player's tool contains "essence of dead":
+            set {_caster} to player
+            
+            # --- Summoning Logic (Shift + Right Click) ---
+            if {_caster} is sneaking:
+                cancel event
+                if {necro.selection_index.%{_caster}'s uuid%} is not set:
+                    updateActionBar({_caster}, "sub", "&cYou have not selected a soul to summon.", 2 seconds)
+                    stop
+                set {_index} to {necro.selection_index.%{_caster}'s uuid%}
+                set {_soul_type} to {necro.souls.%{_caster}'s uuid%::%{_index}%}
+                if {_soul_type} is not set:
+                    updateActionBar({_caster}, "sub", "&cYour soul selection is out of sync. Please re-select a soul.", 2 seconds)
+                    delete {necro.selection_index.%{_caster}'s uuid%}
+                    stop
+                clear {_new_souls::*}
+                loop {necro.souls.%{_caster}'s uuid%::*}:
+                    if loop-index is not "%{_index}%":
+                        add loop-value to {_new_souls::*}
+                delete {necro.souls.%{_caster}'s uuid%::*}
+                loop {_new_souls::*}:
+                    add loop-value to {necro.souls.%{_caster}'s uuid%::*}
+                delete {necro.selection_index.%{_caster}'s uuid%}
+                set {_summon_loc} to location 2 blocks in front of {_caster}
+                execute console command "summon %{_soul_type}% %x-coordinate of {_summon_loc}% %y-coordinate of {_summon_loc}% %z-coordinate of {_summon_loc}% {Glowing:1b,DeathLootTable:""minecraft:empty""}"
+                updateActionBar({_caster}, "sub", "&aYou tear a &b%{_soul_type}%&a from the void!", 2 seconds)
+                execute console command "execute at %{_caster}% run playsound entity.zombie_villager.converted master @s ~ ~ ~ 1 1.5"
+                wait 2 ticks
+                loop entities in radius 3 of {_summon_loc}:
+                    if type of loop-entity is {_soul_type}:
+                        if {necro.is_minion.%loop-entity's uuid%} is not set:
+                            set {_minion} to loop-entity
+                            exit loop
+                if {_minion} is set:
+                    execute console command "team join necro %uuid of {_minion}%"
+                    execute console command "team join necro %{_caster}%"
+                    set {necro.is_minion.%uuid of {_minion}%} to true
+                    leashMinion({_minion}, {_caster})
+                stop
+
+            # --- Soul Collection Logic (Normal Right Click - REVISED) ---
+            if {necro.lingering_soul.%{_caster}'s uuid%.type} is set:
+                cancel event
+                set {_soul_type} to {necro.lingering_soul.%{_caster}'s uuid%.type}
+                delete {necro.lingering_soul.%{_caster}'s uuid%}
+                if size of {necro.souls.%{_caster}'s uuid%::*} >= 10:
+                    updateActionBar({_caster}, "sub", "&cYour soul bank is full! (10/10)", 2 seconds)
+                    stop
+                if {_caster}'s level < 2:
+                    updateActionBar({_caster}, "sub", "&cYou lack the 2 Mana required to capture this soul.", 2 seconds)
+                    stop
+                remove 2 from {_caster}'s level
+                add {_soul_type} to {necro.souls.%{_caster}'s uuid%::*}
+                execute console command "execute at %{_caster}% run particle reverse_portal ~ ~1 ~ 0.5 0.5 0.5 0.1 50"
+                execute console command "execute at %{_caster}% run playsound entity.enderman.teleport master @s ~ ~ ~ 0.5 0.5"
+                set {_new_count} to size of {necro.souls.%{_caster}'s uuid%::*}
+                updateActionBar({_caster}, "sub", "&a&lSoul Collected! &7(&b%{_soul_type}%&7) &f| &eBank: %{_new_count}%/10", 2 seconds)
+
+# --- STEP 4 & 5: VIEWING & SELECTING SOULS ---
+on left click:
+    if player has permission "sub.necromancer":
+        if player's tool is set:
+            if uncolored lore of player's tool contains "essence of dead":
+                cancel event
+                set {_caster} to player
+                if {_caster} is sneaking:
+                    if {necro.souls.%{_caster}'s uuid%::*} is not set:
+                        send "&cYour soul bank is empty." to {_caster}
+                        stop
+                    set {_index} to {necro.selection_index.%{_caster}'s uuid%} ? 0
+                    add 1 to {_index}
+                    if {_index} > size of {necro.souls.%{_caster}'s uuid%::*}:
+                        set {_index} to 1
+                    set {necro.selection_index.%{_caster}'s uuid%} to {_index}
+                    set {_selected_soul} to {necro.souls.%{_caster}'s uuid%::%{_index}%}
+                    send "&dSelected: &b%{_selected_soul}% &7(%{_index}%/%size of {necro.souls.%{_caster}'s uuid%::*}%)" to {_caster}
+                    execute console command "execute at %{_caster}% run playsound ui.button.click master @s ~ ~ ~ 0.7 1.5"
+                    stop
+                set {_current_soul_count} to size of {necro.souls.%player's uuid%::*}
+                if {_current_soul_count} is {necro.last_viewed_count.%player's uuid%}:
+                    if {necro.view_cooldown.%player's uuid%} is set:
+                        stop
+                send "&5--- &dYour Collected Souls &5---" to player
+                if {_current_soul_count} is 0:
+                    send "&7Your soul bank is empty." to player
+                else:
+                    loop {necro.souls.%player's uuid%::*}:
+                        send "&7- &b%loop-value%" to player
+                send "&5------------------------ (%{_current_soul_count}%/10)" to player
+                set {necro.last_viewed_count.%player's uuid%} to {_current_soul_count}
+                set {necro.view_cooldown.%player's uuid%} to true
+                wait 30 seconds
+                delete {necro.view_cooldown.%player's uuid%}
+
+# --- DEATH CLEANUP ---
+on death:
+    set {_uuid} to victim's uuid
+    if {necro.is_minion.%{_uuid}%} is set:
+        delete {necro.is_minion.%{_uuid}%}

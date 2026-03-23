@@ -1,0 +1,321 @@
+# ===================================================================
+# FLOTTER ABILITY (V7 - Mobs & Deactivation Polish)
+# ===================================================================
+
+options:
+    mana_cost: 5
+    flight_radius: 100
+    
+    # Sound FX
+    sound_channel: block.beacon.ambient
+    sound_success: entity.player.levelup
+    sound_fail: block.fire.extinguish
+    sound_warning: block.note_block.pling
+    sound_levitate: entity.shulker.shoot
+
+# ===================================================================
+# --- 1. PASSIVE: WIND WALKER ---
+# ===================================================================
+on damage:
+    if victim is a player:
+        if damage cause is fall:
+            if victim has permission "ability.flotter":
+                if victim has permission "*":
+                    if {creator.enabled_abilities.%victim's uuid%::*} does not contain "flotter":
+                        stop
+                if {ability.suppressed.%victim's uuid%} is true:
+                    stop
+                
+                cancel event
+                execute console command "execute at %victim% run particle cloud ~ ~ ~ 0.5 0 0.5 0.1 5"
+
+# ===================================================================
+# --- 2. ACTIVATION & DEACTIVATION LOGIC ---
+# ===================================================================
+
+on right click:
+    if player is sneaking:
+        if player has permission "ability.flotter":
+            
+            # --- Checks ---
+            if player's tool is not air:
+                stop
+            if player's offhand tool is not air:
+                stop
+            if player has permission "*":
+                if {creator.enabled_abilities.%player's uuid%::*} does not contain "flotter":
+                    stop
+            if {ability.suppressed.%player's uuid%} is true:
+                updateActionBar(player, "flotter_suppress", "&cYour powers are suppressed.", 2 seconds)
+                stop
+            if {flotter.channeling.%player's uuid%} is set:
+                stop # Prevent double triggering
+
+            # --- CASE 1: TARGETING ENTITY (Mob or Player) ---
+            set {_target} to targeted entity
+            if {_target} is set:
+                if distance between player and {_target} <= 5:
+                    
+                    # A. PLAYER TARGET
+                    if {_target} is a player:
+                        # If they already have flight FROM YOU -> Disable it
+                        if {flotter.active.%{_target}'s uuid%} is true:
+                            if {flotter.caster.%{_target}'s uuid%} is player:
+                                startDeactivation(player, {_target})
+                            else:
+                                updateActionBar(player, "flotter_error", "&cThat player's flight is not controlled by you.", 2 seconds)
+                            stop
+                        
+                        # If they don't have flight -> Enable it
+                        else:
+                            startActivation(player, {_target})
+                            stop
+
+                    # B. MOB TARGET (Levitation)
+                    else:
+                        startLevitation(player, {_target})
+                        stop
+
+            # --- CASE 2: SELF TARGET (Look Down) ---
+            if pitch of player > 80:
+                # If already flying -> Disable it
+                if {flotter.active.%player's uuid%} is true:
+                    startDeactivation(player, player)
+                    stop
+                
+                # If not flying -> Enable it
+                else:
+                    startActivation(player, player)
+                    stop
+
+# ===================================================================
+# --- 3. CHANNELING FUNCTIONS ---
+# ===================================================================
+
+# --- ACTIVATION (Giving Flight) ---
+function startActivation(p: player, target: player):
+    if {_p}'s level < {@mana_cost}:
+        updateActionBar({_p}, "flotter_mana", "&cInsufficient Mana! Need {@mana_cost} Levels.", 2 seconds)
+        stop
+
+    set {flotter.channeling.%{_p}'s uuid%} to true
+    set {_start_loc} to location of {_p}
+    set {_t} to 0
+    
+    execute console command "ppo %{_p}% add cloud invocation"
+    
+    if {_p} is {_target}:
+        updateActionBar({_p}, "flotter_channel", "&b&lCHANNELING FLIGHT...", 2 seconds)
+    else:
+        updateActionBar({_p}, "flotter_channel", "&b&lBESTOWING FLIGHT...", 2 seconds)
+        updateActionBar({_target}, "flotter_channel_rec", "&b&l%{_p}% is granting you flight...", 2 seconds)
+    
+    # 5 Second Channel
+    while {_t} < 100: 
+        add 5 to {_t}
+        
+        if distance between {_p} and {_start_loc} > 1.0:
+            updateActionBar({_p}, "flotter_fail", "&cFocus Broken: You moved.", 2 seconds)
+            execute console command "ppo %{_p}% reset"
+            execute console command "execute at %{_p}% run playsound {@sound_fail} master @s ~ ~ ~ 1 1"
+            delete {flotter.channeling.%{_p}'s uuid%}
+            stop
+        
+        if {_p} is not sneaking:
+            updateActionBar({_p}, "flotter_fail", "&cFocus Broken.", 2 seconds)
+            execute console command "ppo %{_p}% reset"
+            delete {flotter.channeling.%{_p}'s uuid%}
+            stop
+        
+        if mod({_t}, 20) is 0:
+            execute console command "execute at %{_p}% run playsound {@sound_channel} master @s ~ ~ ~ 0.5 2"
+        
+        wait 5 ticks
+
+    # Success
+    delete {flotter.channeling.%{_p}'s uuid%}
+    remove {@mana_cost} from {_p}'s level
+    execute console command "ppo %{_p}% reset"
+    
+    if {_p} is {_target}:
+        enableFlight({_p}, "SELF", {_p})
+    else:
+        enableFlight({_target}, "TETHER", {_p})
+        send "&aYou have granted flight to %{_target}%." to {_p}
+
+
+# --- DEACTIVATION (Removing Flight) ---
+function startDeactivation(p: player, target: player):
+    set {flotter.channeling.%{_p}'s uuid%} to true
+    set {_start_loc} to location of {_p}
+    set {_t} to 0
+    
+    # Visuals: Pulse Effect
+    execute console command "ppo %{_p}% add cloud pulse"
+    updateActionBar({_p}, "flotter_disable", "&c&lDISABLING FLIGHT...", 2 seconds)
+    
+    # 2 Second Channel (Faster)
+    while {_t} < 40: 
+        add 5 to {_t}
+        
+        if distance between {_p} and {_start_loc} > 1.0:
+            updateActionBar({_p}, "flotter_disable_fail", "&cDeactivation Cancelled: You moved.", 2 seconds)
+            execute console command "ppo %{_p}% reset"
+            delete {flotter.channeling.%{_p}'s uuid%}
+            stop
+        
+        if {_p} is not sneaking:
+            updateActionBar({_p}, "flotter_disable_fail", "&cDeactivation Cancelled.", 2 seconds)
+            execute console command "ppo %{_p}% reset"
+            delete {flotter.channeling.%{_p}'s uuid%}
+            stop
+            
+        wait 5 ticks
+
+    # Success
+    delete {flotter.channeling.%{_p}'s uuid%}
+    execute console command "ppo %{_p}% reset"
+    
+    disableFlight({_target}, "Manually Disabled")
+
+
+# --- LEVITATION (Mobs) ---
+function startLevitation(p: player, target: entity):
+    if {_p}'s level < 2:
+        updateActionBar({_p}, "flotter_mana", "&cInsufficient Mana! Need 2 Levels.", 2 seconds)
+        stop
+
+    remove 2 from {_p}'s level
+    
+    # Instant Effect
+    execute console command "execute at %{_target}% run playsound {@sound_levitate} master @s ~ ~ ~ 1 1"
+    execute console command "execute at %{_target}% run particle cloud ~ ~ ~ 0.5 1 0.5 0.1 20"
+    
+    # Apply Levitation 5 for 3 seconds
+    apply levitation 5 to {_target} for 3 seconds
+    updateActionBar({_p}, "flotter_levitate", "&bLevitating target!", 2 seconds)
+
+
+# ===================================================================
+# --- 4. FLIGHT MANAGEMENT ---
+# ===================================================================
+
+function enableFlight(p: player, type: text, source: object):
+    set {flotter.active.%{_p}'s uuid%} to true
+    set {flotter.type.%{_p}'s uuid%} to {_type}
+    
+    if {_type} is "TETHER":
+        set {flotter.caster.%{_p}'s uuid%} to {_source}
+        execute console command "speed fly 0.75 %{_p}%"
+    else:
+        execute console command "speed fly 1.5 %{_p}%"
+    
+    if {_p}'s flight mode is false:
+        execute console command "essentials:fly %{_p}% enable"
+    
+    execute console command "execute at %{_p}% run playsound {@sound_success} master @s ~ ~ ~ 0.5 1"
+    execute console command "execute at %{_p}% run particle cloud ~ ~1 ~ 0.5 0.5 0.5 0.05 50"
+    updateActionBar({_p}, "flotter_active", "&b&lFLIGHT ACTIVE", 2 seconds)
+    
+    manageFlightLoop({_p})
+
+function manageFlightLoop(p: player):
+    set {_warning_timer} to 5
+    
+    while {flotter.active.%{_p}'s uuid%} is true:
+        set {_safe} to true
+        
+        # SELF FLIGHT (No Distance Check)
+        if {flotter.type.%{_p}'s uuid%} is "SELF":
+            set {donon} to 1 
+        
+        # TETHER FLIGHT (Distance Check)
+        else if {flotter.type.%{_p}'s uuid%} is "TETHER":
+            set {_caster} to {flotter.caster.%{_p}'s uuid%}
+            
+            if {_caster} is not online:
+                set {_safe} to false
+                updateActionBar({_p}, "flotter_warning", "&c&lSOURCE LOST! &7(%{_warning_timer}%s)", 2 seconds)
+            
+            else if distance between {_p} and {_caster} > {@flight_radius}:
+                set {_safe} to false
+                updateActionBar({_p}, "flotter_warning", "&c&lTOO FAR! &7Return to %{_caster}% (%{_warning_timer}%s)", 2 seconds)
+        
+        if {_safe} is false:
+            if {_warning_timer} <= 0:
+                disableFlight({_p}, "Connection Severed")
+                stop loop
+            execute console command "execute at %{_p}% run playsound {@sound_warning} master @s ~ ~ ~ 2 2"
+            remove 1 from {_warning_timer}
+        else:
+            set {_warning_timer} to 5
+
+        if {ability.suppressed.%{_p}'s uuid%} is true:
+            disableFlight({_p}, "Suppressed")
+            stop loop
+
+        wait 1 second
+
+function disableFlight(p: player, reason: text):
+    if {flotter.active.%{_p}'s uuid%} is set:
+        delete {flotter.active.%{_p}'s uuid%}
+        delete {flotter.caster.%{_p}'s uuid%}
+        delete {flotter.type.%{_p}'s uuid%}
+        delete {flotter.hits.%{_p}'s uuid%}
+        
+        removeScoreboard({_p}, "flotter_shield")
+        execute console command "speed fly 1 %{_p}%"
+        execute console command "essentials:fly %{_p}% disable"
+        execute console command "execute at %{_p}% run playsound {@sound_fail} master @s ~ ~ ~ 1 0.8"
+        updateActionBar({_p}, "flotter_disable", "&cFlight Disabled: %{_reason}%", 2 seconds)
+
+# ===================================================================
+# --- 5. COMBAT DISRUPTION ---
+# ===================================================================
+on damage:
+    if attacker is a player:
+        if victim is a player:
+            if victim does not have permission "*":
+                if victim's gamemode is survival:
+                    if {flotter.active.%victim's uuid%} is true:
+                        # FLOTTER (Self) - 3 Hits Shield
+                        if {flotter.type.%victim's uuid%} is "SELF":
+                            add 1 to {flotter.hits.%victim's uuid%}
+                            set {_hits} to {flotter.hits.%victim's uuid%}
+                            set {_rem} to 3 - {_hits}
+                            
+                            if {_hits} >= 3:
+                                disableFlight(victim, "Combat Disruption")
+                                execute console command "execute at %victim% run playsound entity.glass.break master @s ~ ~ ~ 1 0.8"
+                            else:
+                                updateActionBar(victim, "flotter_combat", "&c⚠ WARNING: TAKING DAMAGE ⚠", 2 seconds)
+                                updateScoreboard(victim, "flotter_shield", "&b&lSHIELD||&f%{_rem}%/3 Hits", 80, 5 seconds)
+                                execute console command "execute at %victim% run playsound entity.player.attack.weak master @s ~ ~ ~ 1 1.5"
+                                set {_uuid} to victim's uuid
+                                wait 10 seconds
+                                if {flotter.hits.%{_uuid}%} is {_hits}:
+                                    delete {flotter.hits.%{_uuid}%}
+                                    if {flotter.active.%{_uuid}%} is true:
+                                        removeScoreboard(victim, "flotter_shield")
+                                        updateActionBar(victim, "flotter_combat", "&a&lFlight integrity restored.", 2 seconds)
+                        
+                        # RECEIVER (Tether) - Instant Disable
+                        else:
+                            disableFlight(victim, "Combat Disruption")
+                            execute console command "execute at %victim% run playsound entity.glass.break master @s ~ ~ ~ 1 0.8"
+
+# ===================================================================
+# --- 6. CLEANUP ---
+# ===================================================================
+on quit:
+    delete {flotter.active.%player's uuid%}
+    delete {flotter.caster.%player's uuid%}
+    delete {flotter.type.%player's uuid%}
+    delete {flotter.hits.%player's uuid%}
+    delete {flotter.channeling.%player's uuid%}
+
+on death:
+    delete {flotter.active.%victim's uuid%}
+    delete {flotter.caster.%victim's uuid%}
+    delete {flotter.type.%victim's uuid%}
+    delete {flotter.hits.%victim's uuid%}

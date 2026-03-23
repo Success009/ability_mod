@@ -1,0 +1,20 @@
+# Build artifacts
+build/
+.gradle/
+bin/
+run/
+
+# Backups
+GOLD_WORKING_BACKUP/
+STABLE_V*_WORKING/
+STABLE_V*_BACKUP/
+*_Backup_v*/
+logs_analysis/
+
+# Binary Mods (We bundle them in resources, don't need raw copies in repo root)
+mods/
+
+# IDE files
+.idea/
+*.iml
+.vscode/

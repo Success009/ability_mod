@@ -1,0 +1,57 @@
+# ===================================================================
+# GLOBAL ACTION BAR MANAGER (V2 - High Performance)
+# ===================================================================
+
+options:
+    refresh_rate: 5 ticks
+    separator: &8| 
+
+# --- Core Function to set/update a message ---
+function updateActionBar(p: player, key: text, msg: text, duration: timespan = 1.5 seconds):
+    set {ab.msg.%{_p}'s uuid%::%{_key}%} to {_msg}
+    if {_duration} is not -1:
+        set {ab.expiry.%{_p}'s uuid%.%{_key}%} to now
+        add {_duration} to {ab.expiry.%{_p}'s uuid%.%{_key}%}
+    else:
+        delete {ab.expiry.%{_p}'s uuid%.%{_key}%}
+    
+    # Instant refresh for high-speed feedback
+    refreshActionBar({_p})
+
+# --- Manual Removal ---
+function removeActionBar(p: player, key: text):
+    delete {ab.msg.%{_p}'s uuid%::%{_key}%}
+    delete {ab.expiry.%{_p}'s uuid%.%{_key}%}
+    refreshActionBar({_p})
+
+# --- Refresh Logic ---
+function refreshActionBar(p: player):
+    set {_final_msg} to ""
+    set {_count} to 0
+    
+    # Keyed Messages
+    loop {ab.msg.%{_p}'s uuid%::*}:
+        set {_key} to loop-index
+        
+        # Expiry Check
+        if {ab.expiry.%{_p}'s uuid%.%{_key}%} is set:
+            if now > {ab.expiry.%{_p}'s uuid%.%{_key}%}:
+                delete {ab.msg.%{_p}'s uuid%::%{_key}%}
+                delete {ab.expiry.%{_p}'s uuid%.%{_key}%}
+                continue loop
+        
+        set {_m} to loop-value
+        if {_final_msg} is "":
+            set {_final_msg} to {_m}
+        else:
+            set {_final_msg} to "%{_final_msg}%{@separator}%{_m}%"
+        add 1 to {_count}
+    
+    # 3. Final Send
+    if {_count} > 0:
+        send action bar {_final_msg} to {_p}
+
+# --- Background Task (Ensures info stays visible even if no updates happen) ---
+every {@refresh_rate}:
+    loop all players:
+        refreshActionBar(loop-player)

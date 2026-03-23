@@ -1,0 +1,20 @@
+command /dark-aura:
+    permission: ability.op
+    permission message: &cYou cannot command the darkness.
+    trigger:
+        broadcast "&4&lA wave of darkness washes over the world..."
+        loop all players:
+            updateActionBar(loop-player, "world", "&5&k||&4 You sense an immense Dark Aura... &5&k||", 5 seconds)
+            send "&7&oA suffocating presence bears down on you..." to loop-player
+            execute console command "/flyspeed fly 0 %loop-player% "
+            execute console command "/effect give %loop-player% minecraft:blindness 3 0 true"
+            execute console command "/attribute %loop-player% minecraft:movement_speed base set 0"
+            execute console command "/attribute %loop-player% minecraft:jump_strength base set 0"
+            execute console command "/ppo %loop-player% add small_gust pulse"
+            execute console command "execute at %loop-player% as %loop-player% run playsound entity.warden.emerge master @s ~ ~ ~ 2 0.5"
+        wait 5 seconds
+        loop all players:
+            execute console command "/flyspeed fly 1 %loop-player%"
+            execute console command "/attribute %loop-player% minecraft:movement_speed base reset"
+            execute console command "/attribute %loop-player% minecraft:jump_strength base reset"
+            execute console command "/ppo %loop-player% reset"

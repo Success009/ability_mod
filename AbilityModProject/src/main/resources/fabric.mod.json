@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "ability-mod",
+  "version": "1.0.0",
+  "name": "Ability SMP Ultimate",
+  "description": "Master Edition with Pre-Launch Janitor (v93)",
+  "authors": ["Gemini"],
+  "contact": { "homepage": "https://fabricmc.net/" },
+  "license": "CC0-1.0",
+  "environment": "client",
+  "entrypoints": {
+    "preLaunch": [
+      "com.ability.mod.JanitorPreLaunch"
+    ],
+    "main": [
+      "com.ability.mod.AbilityMod"
+    ],
+    "client": [
+      "com.ability.mod.client.AbilityModClient"
+    ]
+  },
+  "mixins": [
+    "ability-mod.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

@@ -1,0 +1,143 @@
+command /duo <text> [<player>]:
+    permission: uhc.player
+    trigger:
+        set {_p} to player
+        if argument 1 is "request":
+            if argument 2 is not set:
+                send "&cUsage: /duo request <player>" to {_p}
+                stop
+            set {_target} to argument 2
+            
+            if {_target} is {_p}:
+                send "&cYou cannot team with yourself." to {_p}
+                stop
+            if {duo.team.%{_p}'s uuid%} is set:
+                send "&cYou are already in a team. Use &e/duo abandon&c first." to {_p}
+                stop
+            if {duo.team.%{_target}'s uuid%} is set:
+                send "&c%{_target}% is already in a team." to {_p}
+                stop
+            
+            # Prevent spamming
+            if {duo.request.cooldown.%{_p}'s uuid%} is set:
+                send "&cPlease wait before sending another request." to {_p}
+                stop
+            set {duo.request.cooldown.%{_p}'s uuid%} to true
+            
+            # Store Request
+            set {duo.request.active.%{_target}'s uuid%} to {_p}'s uuid
+            
+            # Notifications
+            send "&aRequest sent to &e%{_target}%&a." to {_p}
+            send "&6&m---------------------------------------------" to {_target}
+            send "&e%{_p}% &7wants to team up with you!" to {_target}
+            send "&7Type &b/duo accept %{_p}% &7to join." to {_target}
+            send "&6&m---------------------------------------------" to {_target}
+            
+            execute console command "execute at %{_target}% run playsound entity.experience_orb.pickup master @s ~ ~ ~ 1 1.5"
+            
+            wait 10 seconds
+            delete {duo.request.cooldown.%{_p}'s uuid%}
+            
+            wait 50 seconds
+            if {duo.request.active.%{_target}'s uuid%} is {_p}'s uuid:
+                delete {duo.request.active.%{_target}'s uuid%}
+                send "&cYour request to %{_target}% has expired." to {_p}
+
+        # --- ACCEPT ---
+        else if argument 1 is "accept":
+            if argument 2 is not set:
+                send "&cUsage: /duo accept <player>" to {_p}
+                stop
+            set {_requester} to argument 2
+            
+            # Check validity
+            if {duo.request.active.%{_p}'s uuid%} is not {_requester}'s uuid:
+                send "&cYou don't have an active request from %{_requester}%." to {_p}
+                stop
+            
+            if {duo.team.%{_requester}'s uuid%} is set:
+                send "&c%{_requester}% has already joined another team." to {_p}
+                stop
+
+            # Create Team
+            set {_team_id} to {_requester}'s uuid
+            set {duo.team.%{_p}'s uuid%} to {_team_id}
+            set {duo.team.%{_requester}'s uuid%} to {_team_id}
+            
+            add {_p} to {duo.team.%{_team_id}%::members::*}
+            add {_requester} to {duo.team.%{_team_id}%::members::*}
+            
+            # Add to Master List (Important for UHC Scatter)
+            if {duo.list::*} does not contain {_team_id}:
+                add {_team_id} to {duo.list::*}
+
+            # Cleanup
+            delete {duo.request.active.%{_p}'s uuid%}
+            delete {duo.request.active.%{_requester}'s uuid%}
+
+            # Announce
+            send "&a&lDUO FORMED! &7You are now teamed with &e%{_requester}%&7." to {_p}
+            send "&a&lDUO FORMED! &7You are now teamed with &e%{_p}%&7." to {_requester}
+            execute console command "execute at %{_p}% run playsound entity.player.levelup master @s ~ ~ ~ 1 1"
+            execute console command "execute at %{_requester}% run playsound entity.player.levelup master @s ~ ~ ~ 1 1"
+
+        # --- ABANDON ---
+        else if argument 1 is "abandon":
+            if {duo.team.%{_p}'s uuid%} is not set:
+                send "&cYou are not in a team." to {_p}
+                stop
+            
+            set {_team_id} to {duo.team.%{_p}'s uuid%}
+            
+            # Notify partner
+            loop {duo.team.%{_team_id}%::members::*}:
+                if loop-value is not {_p}:
+                    send "&c%{_p}% has disbanded the team." to loop-value
+                    delete {duo.team.%loop-value's uuid%}
+            
+            send "&cYou have disbanded the team." to {_p}
+            
+            # Cleanup Variables
+            delete {duo.team.%{_p}'s uuid%}
+            delete {duo.team.%{_team_id}%::*}
+            remove {_team_id} from {duo.list::*}
+
+        # --- VIEW ---
+        else if argument 1 is "view":
+            send "&8&m-------------------------" to {_p}
+            if {duo.team.%{_p}'s uuid%} is set:
+                set {_team_id} to {duo.team.%{_p}'s uuid%}
+                send "&6&lYour Teammate:" to {_p}
+                loop {duo.team.%{_team_id}%::members::*}:
+                    if loop-value is not {_p}:
+                        send " &e- %loop-value%" to {_p}
+            else:
+                send "&7You are currently &cSOLO&7." to {_p}
+                
+            if {duo.request.active.%{_p}'s uuid%} is set:
+                set {_req_uuid} to {duo.request.active.%{_p}'s uuid%}
+                set {_req_name} to {_req_uuid} parsed as offline player
+                send "" to {_p}
+                send "&bPending Request From: &f%{_req_name}%" to {_p}
+            send "&8&m-------------------------" to {_p}
+
+        else:
+            send "&cUsage: /duo <request|accept|abandon|view>"
+
+# --- TAB COMPLETION ---
+on tab complete of "/duo":
+    set tab completions to "request", "accept", "abandon" and "view"
+    if tab complete argument 1 is "request":
+        set tab completions to all players
+    if tab complete argument 1 is "accept":
+        set tab completions to all players
+
+# --- FRIENDLY FIRE PREVENTION ---
+on damage:
+    if attacker is a player:
+        if victim is a player:
+            if {duo.team.%attacker's uuid%} is set:
+                if {duo.team.%attacker's uuid%} is {duo.team.%victim's uuid%}:
+                    cancel event
+                    updateActionBar(attacker, "duo_friendly_fire", "&c&lU Can't attack your partner!", 2 seconds)

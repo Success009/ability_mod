@@ -1,0 +1,260 @@
+# ==============================================================================
+# PVP DUEL MANAGER (V5 - Configurable Prep Time & No-Death Loop)
+# ==============================================================================
+
+options:
+    p: &8[&c&lDUEL&8] &7
+
+# ==============================================================================
+# COMMAND STRUCTURE
+# ==============================================================================
+command /pvp <text> [<text>] [<text>]:
+    permission: ability.op
+    permission message: &cNo permission.
+    trigger:
+        set {_arg1} to arg-1
+        set {_arg2} to arg-2
+        set {_arg3} to arg-3
+
+        # --- 1. SET SPAWN POINTS ---
+        if {_arg1} is "setspawn":
+            if {_arg2} is "1" or "2":
+                set {pvp::spawn::%{_arg2}%} to location of player
+                send "{@p} &aSet &eSpawn %{_arg2}% &ato your location."
+            else:
+                send "{@p} &cUsage: /pvp setspawn <1|2>"
+            stop
+
+        # --- 2. SET KIT ---
+        if {_arg1} is "kit":
+            if {_arg2} is set:
+                set {pvp::kit} to {_arg2}
+                send "{@p} &aKit set to: &e%{pvp::kit}%"
+            else:
+                send "{@p} &cUsage: /pvp kit <kitname>"
+            stop
+
+        # --- 3. CONFIGURATION (New Prep Time) ---
+        if {_arg1} is "config":
+            if {_arg2} is "preptime":
+                set {_time} to {_arg3} parsed as integer
+                if {_time} is set:
+                    set {pvp::cfg::preptime} to {_time}
+                    send "{@p} &aInventory Prep Time set to: &e%{_time}% seconds"
+                else:
+                    send "{@p} &cUsage: /pvp config preptime <seconds>"
+            else:
+                send "{@p} &cUsage: /pvp config preptime <seconds>"
+                send "{@p} &7Current Prep Time: &e%{pvp::cfg::preptime} ? 0%s"
+            stop
+
+        # --- 4. START MATCH (1v1) ---
+        if {_arg1} is "start":
+            if {_arg2} is not set:
+                send "{@p} &cUsage: /pvp start <player1> <player2>"
+                stop
+            if {_arg3} is not set:
+                send "{@p} &cUsage: /pvp start <player1> <player2>"
+                stop
+            
+            # Validation
+            if {pvp::spawn::1} is not set:
+                send "{@p} &cSpawn 1 not set!"
+                stop
+            if {pvp::spawn::2} is not set:
+                send "{@p} &cSpawn 2 not set!"
+                stop
+            if {pvp::kit} is not set:
+                send "{@p} &cKit not set!"
+                stop
+
+            set {_p1} to {_arg2} parsed as player
+            set {_p2} to {_arg3} parsed as player
+
+
+            # --- INITIALIZE MATCH ---
+            set {pvp::active} to true
+            set {pvp::player::1} to {_p1}
+            set {pvp::player::2} to {_p2}
+            
+            # Default prep time to 0 if not set
+            if {pvp::cfg::preptime} is not set:
+                set {pvp::cfg::preptime} to 0
+
+            # Reset Scores
+            set {pvp::score::1} to 0
+            set {pvp::score::2} to 0
+
+            broadcast "{@p} &e&lDUEL STARTED: &b%{_p1}% &7vs &c%{_p2}%"
+            
+            # Start the first round
+            startRound()
+            stop
+
+        # --- 5. STOP MATCH ---
+        if {_arg1} is "stop":
+            if {pvp::active} is not set:
+                send "{@p} &cNo match is currently running."
+                stop
+            
+            endMatch("Admin stopped the match")
+            stop
+
+        send "{@p} &cUsage: /pvp <setspawn|kit|config|start|stop>"
+
+# ==============================================================================
+# GAME LOGIC FUNCTIONS
+# ==============================================================================
+
+function startRound():
+    # Define players
+    set {_p1} to {pvp::player::1}
+    set {_p2} to {pvp::player::2}
+
+    # 1. Teleport to corners
+    teleport {_p1} to {pvp::spawn::1}
+    teleport {_p2} to {pvp::spawn::2}
+
+    # 2. Reset Status & Inventory
+    resetPlayer({_p1})
+    resetPlayer({_p2})
+
+    # 3. Prep Time Phase (If configured)
+    if {pvp::cfg::preptime} > 0:
+        set {_time} to {pvp::cfg::preptime}
+        send title "&ePREPARE" with subtitle "&7Arrange your inventory (%{_time}%s)" to {_p1} and {_p2}
+        wait "%{_time}% seconds" parsed as timespan
+
+    # 4. Countdown Sequence (Freeze & Blind)
+    applyFreeze({_p1})
+    applyFreeze({_p2})
+    teleport {_p1} to {pvp::spawn::1}
+    teleport {_p2} to {pvp::spawn::2}
+    # 3
+    send title "&c&l3" to {_p1} and {_p2} for 0.5 seconds
+    play sound "block.note_block.harp" with pitch 0.5 at {_p1}
+    play sound "block.note_block.harp" with pitch 0.5 at {_p2}
+    wait 1 second
+    
+    # 2
+    send title "&6&l2" to {_p1} and {_p2} for 0.5 seconds
+    play sound "block.note_block.harp" with pitch 1.0 at {_p1}
+    play sound "block.note_block.harp" with pitch 1.0 at {_p2}
+    wait 1 second
+    
+    # 1
+    send title "&e&l1" to {_p1} and {_p2} for 0.5 seconds
+    play sound "block.note_block.harp" with pitch 1.5 at {_p1}
+    play sound "block.note_block.harp" with pitch 1.5 at {_p2}
+    wait 1 second
+
+    # GO!
+    removeFreeze({_p1})
+    removeFreeze({_p2})
+    
+    send title "&a&lFIGHT!" to {_p1} and {_p2} for 1 second
+    play sound "entity.wither.spawn" with pitch 2 at {_p1}
+    play sound "entity.wither.spawn" with pitch 2 at {_p2}
+
+function resetPlayer(p: player):
+    heal {_p}
+    set {_p}'s food level to 20
+    execute console command "gamemode survival %{_p}%"
+    
+    # Fully clear everything using vanilla command
+    execute console command "effect clear %{_p}%"
+    execute console command "minecraft:clear %{_p}%"
+    wait 1 tick
+    
+    # Give Kit
+    execute console command "kit %{pvp::kit}% %{_p}%"
+
+function applyFreeze(p: player):
+    # Blindness hides the opponent, Slowness/Jump stops movement
+    execute console command "effect give %{_p}% minecraft:blindness 3 1 true"
+    execute console command "effect give %{_p}% minecraft:slowness 3 255 true"
+    execute console command "effect give %{_p}% minecraft:jump_boost 3 200 true"
+
+function removeFreeze(p: player):
+    execute console command "effect clear %{_p}% minecraft:blindness"
+    execute console command "effect clear %{_p}% minecraft:slowness"
+    execute console command "effect clear %{_p}% minecraft:jump_boost"
+
+function endMatch(reason: text):
+    delete {pvp::active}
+    
+    set {_p1} to {pvp::player::1}
+    set {_p2} to {pvp::player::2}
+    
+    broadcast "{@p} &eDuel Ended! &7(%{_reason}%)"
+    broadcast "{@p} &7Final Score: &b%{_p1}%: %{pvp::score::1}% &7- &c%{_p2}%: %{pvp::score::2}%"
+    
+    # Clean up variables
+    delete {pvp::player::*}
+    delete {pvp::score::*}
+
+# ==============================================================================
+# LETHAL DAMAGE HANDLER (Instant Reset)
+# ==============================================================================
+
+on damage:
+    if {pvp::active} is set:
+        if damage >= health of victim:
+            # Check if victim is one of the fighters
+            if victim is {pvp::player::1}:
+                cancel event
+                handleRoundWin(2) # Player 2 Wins
+            
+            else if victim is {pvp::player::2}:
+                cancel event
+                handleRoundWin(1) # Player 1 Wins
+
+function handleRoundWin(winner_index: number):
+    # Identify Winner and Loser
+    if {_winner_index} is 1:
+        set {_winner} to {pvp::player::1}
+        set {_loser} to {pvp::player::2}
+        add 1 to {pvp::score::1}
+    else:
+        set {_winner} to {pvp::player::2}
+        set {_loser} to {pvp::player::1}
+        add 1 to {pvp::score::2}
+
+    # Visuals: Simulate death without dying
+    play sound "entity.player.death" at {_loser}
+    send "{@p} &c&lELIMINATED" to {_loser}
+    
+    # Brief delay to register what happened
+    wait 4 ticks
+
+    # Send Messages
+    send "{@p} &a&lROUND WON! &7Score: &e%{pvp::score::1}% - %{pvp::score::2}%" to {_winner}
+    send "{@p} &c&lROUND LOST! &7Score: &e%{pvp::score::1}% - %{pvp::score::2}%" to {_loser}
+    
+    # Start next round
+    startRound()
+
+# ==============================================================================
+# QUIT HANDLER
+# ==============================================================================
+
+on quit:
+    if {pvp::active} is set:
+        if player is {pvp::player::1} or {pvp::player::2}:
+            endMatch("%player% disconnected")
+
+# ==============================================================================
+# TAB COMPLETION
+# ==============================================================================
+on tab complete of "/pvp":
+    set tab completion for position 1 to "start" and "stop" and "setspawn" and "kit" and "config"
+    
+    if tab complete argument 1 is "setspawn":
+        set tab completion for position 2 to "1" and "2"
+        
+    if tab complete argument 1 is "config":
+        set tab completion for position 2 to "preptime"
+        
+    if tab complete argument 1 is "start":
+        set tab completion for position 2 to all players
+        set tab completion for position 3 to all players

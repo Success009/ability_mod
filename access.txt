@@ -1,0 +1,34 @@
+{
+	"tagOwners": {
+		"tag:server":  ["bharatpurbazar@gmail.com"],
+		"tag:players": ["bharatpurbazar@gmail.com"],
+	},
+
+	"acls": [
+		// 1. Full access for Owner
+		{"action": "accept", "src": ["bharatpurbazar@gmail.com"], "dst": ["*:*"]},
+
+		// 2. TARGETED ACCESS for Players
+		// Strictly limited to Game (25565) and Voice (24454)
+		{
+			"action": "accept",
+			"src": [
+				"autogroup:member",
+				"tag:players",
+			],
+			"dst": [
+				"tag:server:25565",
+				"tag:server:24454",
+			],
+		},
+	],
+
+	"ssh": [
+		{
+			"action": "accept",
+			"src":    ["autogroup:member"],
+			"dst":    ["tag:server"],
+			"users":  ["root", "bb", "autogroup:nonroot"],
+		},
+	],
+}

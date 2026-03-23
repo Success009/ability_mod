@@ -1,0 +1,422 @@
+# ===================================================================
+# WIZARD ABILITY: THE ARCANE ARCANUM (REWORK V2)
+# ===================================================================
+# Trigger: Look Down + Sneak + Swap Item (F)
+# Mechanics: Chat-based menu, targeting, and tiered rituals.
+# ===================================================================
+
+options:
+    prefix: &5&l[Wizard] &d
+    sound_cycle: ui.button.click
+    sound_select: block.note_block.chime
+    sound_confirm: block.note_block.bell
+    sound_fail: block.note_block.bass
+    sound_cast: entity.evoker.cast_spell
+    
+    # Ranges
+    range_t1: 50
+    range_t2: 150
+    range_t3: 300
+    
+    # Costs
+    cost_t1: 5
+    cost_t2: 15
+    cost_t3: 30
+
+# ===================================================================
+# --- 1. DATA & CONFIG ---
+# ===================================================================
+
+function getWizardCategories() :: strings:
+    return "Blessings" and "Curses"
+
+function getWizardSpells(cat: text) :: strings:
+    if {_cat} is "Blessings":
+        return "Alacrity", "Might", "Vitality", "Oracle" and "Aegis"
+    if {_cat} is "Curses":
+        return "Decay", "Frost", "Void" and "Silence"
+    return ""
+
+function getSpellDescription(spell: text) :: text:
+    if {_spell} is "Alacrity":
+        return "Speed III & Haste II"
+    if {_spell} is "Might":
+        return "Strength II & Haste II"
+    if {_spell} is "Vitality":
+        return "Instant Heal & Regen III"
+    if {_spell} is "Oracle":
+        return "Glow Nearby Entities"
+    if {_spell} is "Aegis":
+        return "Resistance II & Fire Res"
+    if {_spell} is "Decay":
+        return "Wither III & Hunger III"
+    if {_spell} is "Frost":
+        return "Slowness IV & Mining Fatigue III"
+    if {_spell} is "Void":
+        return "Blindness & Darkness"
+    if {_spell} is "Silence":
+        return "Clear Target Buffs"
+    return "Ancient Magic"
+
+# ===================================================================
+# --- 2. SESSION MANAGEMENT ---
+# ===================================================================
+
+function cancelWizardSession(p: player, reason: text):
+    if {wizard.session.state.%{_p}%} is set:
+        execute console command "ppo %{_p}% reset"
+        updateActionBar({_p}, "wizard", "&cFocus Lost: %{_reason}%", 2 seconds)
+        execute console command "execute at %{_p}% run playsound {@sound_fail} master @s ~ ~ ~ 1 0.5"
+        
+        delete {wizard.session.state.%{_p}%}
+        delete {wizard.session.index.%{_p}%}
+        delete {wizard.session.anchor.%{_p}%}
+        delete {wizard.session.menu_list.%{_p}%::*}
+        delete {wizard.session.category.%{_p}%}
+        delete {wizard.session.spell.%{_p}%}
+        delete {wizard.session.target.%{_p}%}
+        delete {wizard.session.tier.%{_p}%}
+        
+        # CLEAR CHAT
+        loop 20 times:
+            send "" to {_p}
+
+function displayWizardMenu(p: player):
+    loop 10 times:
+        send "" to {_p}
+    send "&5&m==========================================" to {_p}
+    
+    set {_state} to {wizard.session.state.%{_p}%}
+    set {_idx} to {wizard.session.index.%{_p}%}
+    
+    if {_state} is "ROOT":
+        send "   &5&lWIZARD &7| Select Discipline" to {_p}
+    else if {_state} is "SPELL_SELECT":
+        send "   &5&lWIZARD &7| Select Spell (&f%{wizard.session.category.%{_p}%}%&7)" to {_p}
+    else if {_state} is "TARGET_SELECT":
+        send "   &5&lWIZARD &7| Select Target" to {_p}
+    else if {_state} is "TIER_SELECT":
+        send "   &5&lWIZARD &7| Select Power Tier" to {_p}
+
+    # --- VIEWPORT LOGIC ---
+    set {_total} to size of {wizard.session.menu_list.%{_p}%::*}
+    set {_start} to {_idx} - 2
+    if {_start} < 1:
+        set {_start} to 1
+    set {_end} to {_start} + 4
+    if {_end} > {_total}:
+        set {_end} to {_total}
+        set {_start} to {_end} - 4
+        if {_start} < 1:
+            set {_start} to 1
+
+    set {_count} to 0
+    loop {wizard.session.menu_list.%{_p}%::*}:
+        add 1 to {_count}
+        if {_count} is between {_start} and {_end}:
+            set {_val} to loop-value
+            set {_display} to "%{_val}%"
+            
+            # --- CUSTOM FORMATTING ---
+            if {_state} is "SPELL_SELECT":
+                set {_display} to "%{_val}% &8- &7%getSpellDescription({_val})%"
+            else if {_state} is "TIER_SELECT":
+                set {_cost} to 0
+                if {_val} is "Tier I":
+                    set {_cost} to {@cost_t1}
+                else if {_val} is "Tier II":
+                    set {_cost} to {@cost_t2}
+                else if {_val} is "Tier III":
+                    set {_cost} to {@cost_t3}
+                
+                set {_color} to "&a"
+                if {_p}'s level < {_cost}:
+                    set {_color} to "&c"
+                set {_display} to "%{_val}% &7(%{_color}%%{_cost}% Lvl&7)"
+
+            if {_count} is {_idx}:
+                send "   &6&l➜ &d%{_display}%" to {_p}
+            else:
+                send "      &8%{_display}%" to {_p}
+    
+    set {_shown} to ({_end} - {_start}) + 1
+    loop (5 - {_shown}) times:
+        send "" to {_p}
+
+    send "&d[Sneak] &7Cycle | &d[Q] &7Back | &d[F] &7Confirm" to {_p}
+    send "&5&m==========================================" to {_p}
+
+# ===================================================================
+# --- 3. INTERACTION ---
+# ===================================================================
+
+on swap item:
+    if {wizard.session.state.%player%} is set:
+        cancel event
+        
+        # --- SELECTION LOGIC ---
+        set {_idx} to {wizard.session.index.%player%}
+        set {_selection} to {wizard.session.menu_list.%player%::%{_idx}%}
+        set {_state} to {wizard.session.state.%player%}
+        
+        execute console command "execute at %player% run playsound {@sound_select} master @s ~ ~ ~ 1 1"
+
+        if {_state} is "ROOT":
+            set {wizard.session.category.%player%} to {_selection}
+            set {wizard.session.state.%player%} to "SPELL_SELECT"
+            set {wizard.session.index.%player%} to 1
+            delete {wizard.session.menu_list.%player%::*}
+            set {_list::*} to getWizardSpells({_selection})
+            loop {_list::*}:
+                add loop-value to {wizard.session.menu_list.%player%::*}
+            displayWizardMenu(player)
+
+        else if {_state} is "SPELL_SELECT":
+            set {wizard.session.spell.%player%} to {_selection}
+            set {wizard.session.state.%player%} to "TARGET_SELECT"
+            set {wizard.session.index.%player%} to 1 # Default is 1 (which will be self)
+            delete {wizard.session.menu_list.%player%::*}
+            
+            # --- TARGET LIST (Self First, Same World Only) ---
+            add player to {wizard.session.menu_list.%player%::*}
+            loop all players:
+                if loop-player is not player:
+                    if loop-player's world is player's world:
+                        add loop-player to {wizard.session.menu_list.%player%::*}
+            
+            displayWizardMenu(player)
+
+        else if {_state} is "TARGET_SELECT":
+            set {wizard.session.target.%player%} to {_selection}
+            set {wizard.session.state.%player%} to "TIER_SELECT"
+            set {wizard.session.index.%player%} to 1
+            delete {wizard.session.menu_list.%player%::*}
+            add "Tier I", "Tier II" and "Tier III" to {wizard.session.menu_list.%player%::*}
+            displayWizardMenu(player)
+
+        else if {_state} is "TIER_SELECT":
+            set {wizard.session.tier.%player%} to {_selection}
+            finishSelection(player)
+
+function finishSelection(p: player):
+    set {_cat} to {wizard.session.category.%{_p}%}
+    set {_spell} to {wizard.session.spell.%{_p}%}
+    set {_target} to {wizard.session.target.%{_p}%}
+    set {_tier} to {wizard.session.tier.%{_p}%}
+    
+    # --- TARGET VALIDATION ---
+    if {_target} is not set:
+        cancelWizardSession({_p}, "Invalid Target")
+        stop
+    if {_target} is not online:
+        updateActionBar({_p}, "wizard", "&cTarget is no longer online!", 2 seconds)
+        cancelWizardSession({_p}, "Target Offline")
+        stop
+    if world of {_target} is not world of {_p}:
+        updateActionBar({_p}, "wizard", "&cTarget is in another dimension!", 2 seconds)
+        cancelWizardSession({_p}, "Wrong World")
+        stop
+    
+    # --- COST VALIDATION ---
+    set {_cost} to {@cost_t1}
+    if {_tier} is "Tier II":
+        set {_cost} to {@cost_t2}
+    else if {_tier} is "Tier III":
+        set {_cost} to {@cost_t3}
+    
+    if {_p}'s level < {_cost}:
+        updateActionBar({_p}, "wizard", "&cInsufficient Mana!", 2 seconds)
+        cancelWizardSession({_p}, "Mana Depleted")
+        stop
+    
+    # --- DISTANCE VALIDATION ---
+    set {_range} to {@range_t1}
+    if {_tier} is "Tier II":
+        set {_range} to {@range_t2}
+    else if {_tier} is "Tier III":
+        set {_range} to {@range_t3}
+    
+    if distance between {_p} and {_target} > {_range}:
+        updateActionBar({_p}, "wizard", "&cTarget out of range! (Max: %{_range}%m)", 2 seconds)
+        cancelWizardSession({_p}, "Range Exceeded")
+        stop
+
+    # --- SUCCESS ---
+    remove {_cost} from {_p}'s level
+    execute console command "execute at %{_p}% run playsound {@sound_confirm} master @s ~ ~ ~ 1 1.2"
+    execute console command "execute at %{_p}% run playsound {@sound_cast} master @s ~ ~ ~ 1 0.8"
+    
+    # Visual Beam
+    castVisualBeam({_p}, {_target}, {_cat})
+    
+    # Apply Effects
+    applyWizardSpell({_target}, {_spell}, {_tier}, {_p})
+    
+    updateActionBar({_p}, "wizard", "&a&l%{_spell}% Cast!", 2 seconds)
+    
+    cancelWizardSession({_p}, "Ritual Complete")
+
+function castVisualBeam(p: player, t: player, cat: text):
+    set {_loc} to eye location of {_p}
+    set {_target_loc} to eye location of {_t}
+    set {_dist} to distance between {_loc} and {_target_loc}
+    set {_steps} to {_dist} * 2
+    set {_vector} to vector between {_loc} and {_target_loc}
+    set vector length of {_vector} to 0.5
+    
+    set {_particle} to "composter"
+    if {_cat} is "Curses":
+        set {_particle} to "witch"
+    
+    set {_counter} to 0
+    loop {_steps} times:
+        add 1 to {_counter}
+        set {_loc} to {_loc} ~ {_vector}
+        if {_cat} is "Blessings":
+            play 1 happy villager at {_loc}
+        else:
+            play 1 witch magic at {_loc}
+        if mod({_counter}, 5) is 0:
+            wait 1 tick
+
+function applyWizardSpell(t: player, spell: text, tier: text, caster: player):
+    # Tier multipliers for duration
+    set {_d} to 15 seconds
+    if {_tier} is "Tier II":
+        set {_d} to 30 seconds
+    else if {_tier} is "Tier III":
+        set {_d} to 60 seconds
+
+    # --- BLESSINGS ---
+    if {_spell} is "Alacrity":
+        apply speed 3 to {_t} for {_d}
+        apply haste 2 to {_t} for {_d}
+    else if {_spell} is "Might":
+        apply strength 2 to {_t} for {_d}
+        apply haste 2 to {_t} for {_d}
+    else if {_spell} is "Vitality":
+        heal {_t} by 4
+        apply regeneration 3 to {_t} for 5 seconds
+    else if {_spell} is "Oracle":
+        loop all entities in radius 30 of {_t}:
+            apply glowing 1 to loop-entity for 10 seconds
+    else if {_spell} is "Aegis":
+        apply resistance 2 to {_t} for {_d}
+        apply fire resistance 1 to {_t} for {_d}
+    
+    # --- CURSES ---
+    else if {_spell} is "Decay":
+        apply wither 3 to {_t} for 8 seconds
+        apply hunger 3 to {_t} for 10 seconds
+    else if {_spell} is "Frost":
+        apply slowness 4 to {_t} for 5 seconds
+        apply mining fatigue 3 to {_t} for 10 seconds
+        if {_tier} is "Tier III":
+            apply slowness 5 to {_t} for 7 seconds
+    else if {_spell} is "Void":
+        apply darkness 1 to {_t} for 10 seconds
+        apply blindness 1 to {_t} for 5 seconds
+    else if {_spell} is "Silence":
+        loop all active potion effects of {_t}:
+            remove loop-potion effect from {_t}
+
+on sneak toggle:
+    if player is sneaking:
+        if {wizard.session.state.%player%} is set:
+            set {_size} to size of {wizard.session.menu_list.%player%::*}
+            add 1 to {wizard.session.index.%player%}
+            if {wizard.session.index.%player%} > {_size}:
+                set {wizard.session.index.%player%} to 1
+            
+            execute console command "execute at %player% run playsound {@sound_cycle} master @s ~ ~ ~ 0.5 1.5"
+            displayWizardMenu(player)
+
+on drop:
+    if {wizard.session.state.%player%} is set:
+        cancel event
+        set {_state} to {wizard.session.state.%player%}
+        
+        if {_state} is "ROOT":
+            cancelWizardSession(player, "Aborted")
+        else if {_state} is "SPELL_SELECT":
+            set {wizard.session.state.%player%} to "ROOT"
+            set {wizard.session.index.%player%} to 1
+            delete {wizard.session.menu_list.%player%::*}
+            set {_list::*} to getWizardCategories()
+            loop {_list::*}:
+                add loop-value to {wizard.session.menu_list.%player%::*}
+            displayWizardMenu(player)
+        else if {_state} is "TARGET_SELECT":
+            set {wizard.session.state.%player%} to "SPELL_SELECT"
+            set {wizard.session.index.%player%} to 1
+            delete {wizard.session.menu_list.%player%::*}
+            set {_list::*} to getWizardSpells({wizard.session.category.%player%})
+            loop {_list::*}:
+                add loop-value to {wizard.session.menu_list.%player%::*}
+            displayWizardMenu(player)
+        else if {_state} is "TIER_SELECT":
+            set {wizard.session.state.%player%} to "TARGET_SELECT"
+            set {wizard.session.index.%player%} to 1
+            delete {wizard.session.menu_list.%player%::*}
+            
+            # Same World Filter
+            add player to {wizard.session.menu_list.%player%::*}
+            loop all players:
+                if loop-player is not player:
+                    if loop-player's world is player's world:
+                        add loop-player to {wizard.session.menu_list.%player%::*}
+            displayWizardMenu(player)
+
+# ===================================================================
+# --- 4. ACTIVATION & CLEANUP ---
+# ===================================================================
+
+on swap item:
+    if player has permission "ability.wizard":
+        # Check Activation Pattern
+        if player is sneaking:
+            if player's pitch > 75:
+                # CREATOR OVERRIDE
+                if player has permission "*":
+                    if {creator.enabled_abilities.%player's uuid%::*} does not contain "wizard":
+                        stop
+                
+                if {ability.suppressed.%player's uuid%} is true:
+                    send "&cYour powers are suppressed." to player
+                    stop
+                
+                if {wizard.session.state.%player%} is not set:
+                    cancel event
+                    set {wizard.session.anchor.%player%} to location of player
+                    set {wizard.session.state.%player%} to "ROOT"
+                    set {wizard.session.index.%player%} to 1
+                    delete {wizard.session.menu_list.%player%::*}
+                    set {_list::*} to getWizardCategories()
+                    loop {_list::*}:
+                        add loop-value to {wizard.session.menu_list.%player%::*}
+                    
+                    execute console command "execute at %player% run playsound block.amethyst_block.chime master @s ~ ~ ~ 1 1.5"
+                    displayWizardMenu(player)
+                    
+                    # --- MOVEMENT MONITOR ---
+                    while {wizard.session.state.%player%} is set:
+                        if distance between player and {wizard.session.anchor.%player%} > 0.4:
+                            cancelWizardSession(player, "You moved!")
+                        wait 5 ticks
+
+on quit:
+    cancelWizardSession(player, "Logged out")
+
+on inventory click:
+    if {wizard.session.state.%player%} is set:
+        cancel event
+        cancelWizardSession(player, "Focus lost")
+
+on entity potion effect modification:
+    if event-entity has permission "ability.wizard":
+        if {ability.suppressed.%event-entity's uuid%} is true:
+            stop
+        if event-entity does not have permission "*":
+            if event-potion effect type = poison or darkness or slowness or weakness or mining fatigue or wither or hunger or levitation or unluck or nausea or instant damage or blindness or infested or weaving or oozing:
+                cancel event
+                updateActionBar(event-entity, "wizard_prevent", "&aMagic has prevented &c%event-potion effect type%&a!", 2 seconds)

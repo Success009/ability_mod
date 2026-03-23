@@ -1,0 +1,541 @@
+# ===================================================================
+# TELEPORTER ABILITY: THE VOID WALKER
+# ===================================================================
+
+options:
+    prefix: &5&l[Teleporter] &d
+    
+    # Costs & Settings
+    cost_base: 1
+    cost_per_100_blocks: 1
+    cost_blink: 2
+    request_timeout: 30 seconds
+    
+    # Sounds
+    sound_open: block.ender_chest.open
+    sound_click: ui.button.click
+    sound_warp: entity.enderman.teleport
+    sound_error: block.note_block.bass
+    sound_success: entity.experience_orb.pickup
+    sound_blink: entity.enderman.teleport
+    # New softer suspense sound
+    sound_suspense: block.note_block.chime
+
+# ===================================================================
+# --- 1. UTILITIES & CHECKS ---
+# ===================================================================
+
+function getTeleportCost(p1: player, p2: player) :: number:
+    if world of {_p1} is not world of {_p2}:
+        return 50
+    set {_dist} to distance between {_p1} and {_p2}
+    set {_cost} to {@cost_base} + ({_dist} / 100)
+    return round({_cost})
+
+function canTeleport(p: player) :: boolean:
+    if {_p} has permission "*":
+        if {creator.enabled_abilities.%{_p}'s uuid%::*} does not contain "teleporter":
+            return false
+    if {ability.suppressed.%{_p}'s uuid%} is true:
+        updateActionBar({_p}, "teleporter", "&cYour powers are suppressed.", 2 seconds)
+        return false
+    if isInCombat({_p}) is true:
+        updateActionBar({_p}, "teleporter", "&cCannot warp while in combat!", 2 seconds)
+        return false
+    return true
+
+function isSafe(loc: location) :: boolean:
+    # Feet Check
+    set {_feet} to block at {_loc}
+    if {_feet} is solid:
+        return false
+    if "%type of {_feet}%" contains "lava":
+        return false
+        
+    # Head Check
+    set {_head} to block at location 1 meter above {_loc}
+    if {_head} is solid:
+        return false
+    if "%type of {_head}%" contains "lava":
+        return false
+        
+    return true
+
+# ===================================================================
+# --- 2. NAVIGATION SKILL (BLINK) ---
+# ===================================================================
+
+on swap item:
+    if player has permission "ability.teleporter":
+        # --- PHASE 1: THE NETWORK (Look Down + Shift + F) ---
+        if player is sneaking:
+            if player's pitch > 75:
+                if player's tool is air:
+                    if player's offhand tool is not air:
+                        stop
+                    cancel event
+                    if canTeleport(player) is false:
+                        stop
+                    
+                    # Prevent Re-Opening
+                    if {teleporter.ritual.active.%player%} is set:
+                        updateActionBar(player, "teleporter", "&cRitual already active!", 2 seconds)
+                        stop
+
+                    # Cooldown Checks
+                    if isOnCooldown(player, "teleporter_network", 30 seconds) is true:
+                        updateActionBar(player, "teleporter", "&cNetwork recharging...", 2 seconds)
+                        stop
+                    if isOnCooldown(player, "teleporter_fail", 5 seconds) is true:
+                        updateActionBar(player, "teleporter", "&cStabilizing energy...", 2 seconds)
+                        stop
+
+                    startTeleportRitual(player)
+                    stop
+
+            # --- PHASE 2: NAVIGATION (Blink) (Shift + F) ---
+            if player's tool is air:
+                if player's offhand tool is not air:
+                    stop
+                cancel event
+                if canTeleport(player) is false:
+                    stop
+
+                set {_loc} to target block
+                set {_dist} to distance between player and {_loc}
+                
+                # --- BLINK (F, looking far) ---
+                if {_dist} > 2:
+                    executeBlink(player, {_loc})
+                else:
+                    updateActionBar(player, "teleporter", "&cLook further to Blink.", 2 seconds)
+
+function executeBlink(p: player, loc: location):
+    if isOnCooldown({_p}, "teleporter_blink", 5 seconds) is true:
+        stop
+        
+    if {_p}'s level < {@cost_blink}:
+        updateActionBar({_p}, "teleporter", "&cNeed {@cost_blink} Levels to Blink.", 2 seconds)
+        stop
+    
+    # Destination: On top of the block looked at
+    set {_dest} to location 1 meter above {_loc}
+    
+    # Center the location
+    set x-coordinate of {_dest} to x-coordinate of {_loc} + 0.5
+    set z-coordinate of {_dest} to z-coordinate of {_loc} + 0.5
+    set yaw of {_dest} to yaw of {_p}
+    set pitch of {_dest} to pitch of {_p}
+    
+    if isSafe({_dest}) is false:
+        updateActionBar({_p}, "teleporter", "&cDestination is obstructed.", 2 seconds)
+        stop
+        
+    remove {@cost_blink} from {_p}'s level
+    startCooldown({_p}, "teleporter_blink")
+    
+    # Effects & Teleport
+    play sound "{@sound_blink}" with volume 1 and pitch 1.2 at {_p}
+    execute console command "ppo %{_p}% add portal beam"
+    teleport {_p} to {_dest}
+    play sound "{@sound_blink}" with volume 1 and pitch 1.5 at {_p}
+    execute console command "ppo %{_p}% reset"
+
+# ===================================================================
+# --- 3. THE NETWORK (CHAT RITUAL) ---
+# ===================================================================
+
+function clearChat(p: player):
+    loop 20 times:
+        send "" to {_p}
+
+function startTeleportRitual(p: player):
+    set {teleporter.ritual.anchor.%{_p}%} to location of {_p}
+    set {teleporter.ritual.active.%{_p}%} to true
+    
+    # Visuals: Portal Pulse
+    execute console command "ppo %{_p}% add portal pulse"
+    play sound "{@sound_open}" with volume 1 and pitch 1 at {_p} for {_p}
+    
+    clearChat({_p})
+    
+    send "&5&l=== TELEPORT NETWORK ===" to {_p}
+    send "&7Don't move! Select an anchor point:" to {_p}
+    send "" to {_p}
+    
+    send formatted "   <run command:/teleporter:menu players><tooltip:&dView Players>&b&l[PLAYER SIGNALS]<reset>       <run command:/teleporter:menu warps><tooltip:&5View Warp Points>&5&l[WARP POINTS]<reset>" to {_p}
+    send "" to {_p}
+    send formatted "   <run command:/teleporter:cancel><tooltip:&cClick to Cancel>&c&l[CLOSE CONNECTION]<reset>" to {_p}
+    send "&5&m========================" to {_p}
+
+command /teleporter:menu <text>:
+    trigger:
+        set {_p} to player
+        if {teleporter.ritual.active.%{_p}%} is not set:
+            send "{@prefix}&cRitual timed out." to {_p}
+            stop
+            
+        if arg-1 is "players":
+            displayPlayerMenu({_p})
+        else if arg-1 is "warps":
+            displayWarpMenu({_p})
+
+function displayPlayerMenu(p: player):
+    clearChat({_p})
+    
+    send "&5&l=== PLAYER SIGNALS ===" to {_p}
+    send "" to {_p}
+    set {_count} to 0
+    loop all players:
+        if loop-player is not {_p}:
+            add 1 to {_count}
+            set {_target} to loop-player
+            set {_cost} to getTeleportCost({_p}, {_target})
+            
+            # Distance hidden
+            set {_dist_text} to "Unknown"
+            if world of {_p} is not world of {_target}:
+                set {_dist_text} to "Diff. Dim"
+                
+            set {_name} to "&f%{_target}%"
+                
+            send formatted " &7• %{_name}% &8[%{_dist_text}%] <run command:/teleporter:select %{_target}% TO><tooltip:&dTeleport TO them (&f%{_cost}% Lvl&d)>&d[WARP TO]&r <run command:/teleporter:select %{_target}% HERE><tooltip:&eSummon them HERE (&f%{_cost}% Lvl&e)>&e[SUMMON]" to {_p}
+    
+    if {_count} is 0:
+        send " &cNo signals found." to {_p}
+    send "" to {_p}
+    send formatted "   <run command:/teleporter:cancel><tooltip:&cClick to Cancel>&c&l[CLOSE CONNECTION]<reset>" to {_p}
+    send "&5&m========================" to {_p}
+
+function displayWarpMenu(p: player):
+    clearChat({_p})
+    
+    send "&5&l=== WARP POINTS ===" to {_p}
+    send "&7Max: 10 Points" to {_p}
+    send "" to {_p}
+    
+    set {_count} to size of {teleporter.warps.%{_p}'s uuid%::*}
+    
+    if {_count} < 10:
+        send formatted "   <run command:/teleporter:warp_action create new><tooltip:&aCreate new Warp Point>&a&l[+ CREATE NEW POINT]<reset>" to {_p}
+    else:
+        send "   &8[Max Points Reached]" to {_p}
+    send "" to {_p}
+    
+    loop {teleporter.warps.%{_p}'s uuid%::*}:
+        set {_name} to loop-index
+        set {_loc} to loop-value
+        set {_world} to world of {_loc}
+        send formatted " &7• &f%{_name}% &8(%{_world}%) <run command:/teleporter:warp_action warp %{_name}%><tooltip:&dWarp (10s Channel)>&d[WARP]&r <run command:/teleporter:warp_action delete %{_name}%><tooltip:&cDelete Forever>&c[DEL]" to {_p}
+        
+    send "" to {_p}
+    send formatted "   <run command:/teleporter:cancel><tooltip:&cClick to Cancel>&c&l[CLOSE CONNECTION]<reset>" to {_p}
+    send "&5&m========================" to {_p}
+
+command /teleporter:warp_action <text> <text>:
+    trigger:
+        set {_p} to player
+        set {_action} to arg-1
+        set {_id} to arg-2
+        
+        if {teleporter.ritual.active.%{_p}%} is not set:
+            send "{@prefix}&cRitual timed out." to {_p}
+            stop
+        
+        if distance between {_p} and {teleporter.ritual.anchor.%{_p}%} > 0.5:
+            cancelTeleportRitual({_p}, "You moved!")
+            stop
+
+        if {_action} is "create":
+            if size of {teleporter.warps.%{_p}'s uuid%::*} >= 10:
+                send "{@prefix}&cMax warp points reached." to {_p}
+                stop
+            
+            set {_count} to size of {teleporter.warps.%{_p}'s uuid%::*} + 1
+            set {_name} to "Warp #%{_count}%"
+            set {teleporter.warps.%{_p}'s uuid%::%{_name}%} to location of {_p}
+            send "{@prefix}&aWarp point '%{_name}%' created!" to {_p}
+            displayWarpMenu({_p})
+
+        else if {_action} is "delete":
+            delete {teleporter.warps.%{_p}'s uuid%::%{_id}%}
+            send "{@prefix}&cWarp point '%{_id}%' deleted." to {_p}
+            displayWarpMenu({_p})
+
+        else if {_action} is "warp":
+            if isOnCooldown({_p}, "teleporter_warp_use", 5 minutes) is true:
+                send "{@prefix}&cWarp points are recharging (5m)." to {_p}
+                stop
+
+            set {_loc} to {teleporter.warps.%{_p}'s uuid%::%{_id}%}
+            if {_loc} is not set:
+                send "{@prefix}&cPoint not found." to {_p}
+                stop
+                
+            # Channeling Start
+            delete {teleporter.ritual.active.%{_p}%}
+            delete {teleporter.ritual.anchor.%{_p}%}
+            startCooldown({_p}, "teleporter_warp_use")
+            startWarpChanneling({_p}, {_loc})
+
+function startWarpChanneling(p: player, loc: location):
+    send "{@prefix}&5Channeling warp... (10s)" to {_p}
+    execute console command "ppo %{_p}% add portal beam"
+    set {teleporter.channeling.%{_p}%} to true
+    set {teleporter.channel.start.%{_p}%} to now
+    set {teleporter.channel.loc.%{_p}%} to location of {_p}
+    
+    # 10s wait loop with checks
+    loop 10 times:
+        wait 1 second
+        if {teleporter.channeling.%{_p}%} is not set:
+            stop # Cancelled by damage/move
+            
+        if distance between {_p} and {teleporter.channel.loc.%{_p}%} > 0.5:
+            cancelChanneling({_p}, "Moved")
+            stop
+            
+        updateActionBar({_p}, "teleporter", "&dChanneling... %10 - loop-number%s", 1 second)
+        
+    # Success
+    teleport {_p} to {_loc}
+    execute console command "ppo %{_p}% reset"
+    delete {teleporter.channeling.%{_p}%}
+    play sound "{@sound_warp}" with volume 1 at {_p}
+    send "{@prefix}&aWarp complete!" to {_p}
+
+function cancelChanneling(p: player, reason: text):
+    delete {teleporter.channeling.%{_p}%}
+    execute console command "ppo %{_p}% reset"
+    send "{@prefix}&cWarp cancelled: %{_reason}%" to {_p}
+
+on damage:
+    if {teleporter.channeling.%victim%} is set:
+        cancelChanneling(victim, "Took Damage")
+    if {teleporter.pending_teleport.%victim%} is set:
+        cancelPendingTeleport(victim, "Took Damage")
+    if {teleporter.pending_teleport.%attacker%} is set:
+        cancelPendingTeleport(attacker, "Entered Combat")
+
+command /teleporter:cancel:
+    trigger:
+        cancelTeleportRitual(player, "Cancelled manually")
+
+function cancelTeleportRitual(p: player, reason: text):
+    if {teleporter.ritual.active.%{_p}%} is set:
+        delete {teleporter.ritual.active.%{_p}%}
+        delete {teleporter.ritual.anchor.%{_p}%}
+        
+        # Visuals: Reset PPO & Poof
+        execute console command "ppo %{_p}% reset"
+        draw 15 of poof at location of {_p} with offset vector(0.5, 0, 0.5) with extra 0
+        play sound "{@sound_error}" with volume 0.5 and pitch 0.5 at {_p} for {_p}
+        
+        # Clear Chat
+        loop 100 times:
+            send "" to {_p}
+            
+        updateActionBar({_p}, "teleporter", "&cRitual broken: %{_reason}%", 2 seconds)
+        
+        # False Start Cooldown (5s)
+        startCooldown({_p}, "teleporter_fail")
+
+command /teleporter:select <player> <text>:
+    trigger:
+        set {_p} to player
+        set {_target} to arg-1
+        set {_mode} to arg-2
+        
+        if {teleporter.ritual.active.%{_p}%} is not set:
+            send "{@prefix}&cRitual timed out or broken." to {_p}
+            stop
+            
+        if canTeleport({_p}) is false:
+            stop
+
+        if distance between {_p} and {teleporter.ritual.anchor.%{_p}%} > 0.5:
+            cancelTeleportRitual({_p}, "You moved!")
+            stop
+            
+        if {_target} is not online:
+            send "{@prefix}&cTarget lost." to {_p}
+            stop
+            
+        set {_cost} to getTeleportCost({_p}, {_target})
+        if {_p}'s level < {_cost}:
+            play sound "{@sound_error}" at {_p} for {_p}
+            send "{@prefix}&cNot enough levels! Need &d%{_cost}%&c." to {_p}
+            stop
+
+        # Cleanup Visuals
+        execute console command "ppo %{_p}% reset"
+        
+        sendRequest({_p}, {_target}, {_mode}, {_cost})
+        delete {teleporter.ritual.active.%{_p}%}
+        delete {teleporter.ritual.anchor.%{_p}%}
+        
+        # Success Cooldown (30s)
+        startCooldown({_p}, "teleporter_network")
+
+# ===================================================================
+# --- 4. REQUEST SYSTEM ---
+# ===================================================================
+
+function sendRequest(sender: player, target: player, type: text, cost: number):
+    set {teleporter.request.%{_target}%::sender} to {_sender}
+    set {teleporter.request.%{_target}%::type} to {_type}
+    set {teleporter.request.%{_target}%::cost} to {_cost}
+    set {teleporter.request.%{_target}%::expiry} to now
+    
+    send "{@prefix}&7Request sent to &f%{_target}%&7..." to {_sender}
+    play sound "{@sound_click}" with volume 1 at {_sender} for {_sender}
+    
+    play sound "block.note_block.bell" with volume 1 and pitch 2 at {_target} for {_target}
+    send "" to {_target}
+    send "{@prefix}&f%{_sender}% &7wants to open a rift." to {_target}
+    if {_type} is "TO":
+        send "   &7They want to &bteleport to you&7." to {_target}
+    else:
+        send "   &7They want to &esummon you to them&7." to {_target}
+    send formatted "   <run command:/teleporter:accept><tooltip:&aClick to Accept>&a&l[ACCEPT]<reset>   <run command:/teleporter:deny><tooltip:&cClick to Deny>&c&l[DENY]<reset>" to {_target}
+    send "" to {_target}
+
+command /teleporter:accept:
+    permission: ability.member
+    trigger:
+        set {_target} to player
+        if {teleporter.request.%{_target}%::sender} is not set:
+            send "{@prefix}&cNo active requests." to {_target}
+            stop
+        set {_diff} to difference between {teleporter.request.%{_target}%::expiry} and now
+        if {_diff} > {@request_timeout}:
+            delete {teleporter.request.%{_target}%::*}
+            send "{@prefix}&cRequest expired." to {_target}
+            stop
+        set {_sender} to {teleporter.request.%{_target}%::sender}
+        set {_type} to {teleporter.request.%{_target}%::type}
+        set {_cost} to {teleporter.request.%{_target}%::cost}
+        
+        if canTeleport({_sender}) is false:
+            send "{@prefix}&c%{_sender}%'s powers are currently suppressed." to {_target}
+            delete {teleporter.request.%{_target}%::*}
+            stop
+            
+        if {_sender} is not online:
+            send "{@prefix}&c%{_sender}% is no longer online." to {_target}
+            delete {teleporter.request.%{_target}%::*}
+            stop
+        if {_sender}'s level < {_cost}:
+            send "{@prefix}&c%{_sender}% no longer has enough levels." to {_target}
+            delete {teleporter.request.%{_target}%::*}
+            stop
+            
+        delete {teleporter.request.%{_target}%::*}
+        remove {_cost} from {_sender}'s level
+        
+        # Start 4s Suspense Timer logic (New Requirement)
+        startSuspenseSequence({_sender}, {_target}, {_type})
+
+function startSuspenseSequence(sender: player, target: player, type: text):
+    set {teleporter.pending_teleport.%{_sender}%} to true
+    set {teleporter.pending_teleport.%{_target}%} to true
+    
+    # 4s Timer Loop
+    loop 4 times:
+        set {_rem} to 5 - loop-number
+        updateScoreboard({_sender}, "teleport_suspense", "&5&lWARPING... &f%{_rem}%s", 100, 1 second)
+        updateScoreboard({_target}, "teleport_suspense", "&5&lWARPING... &f%{_rem}%s", 100, 1 second)
+        
+        play sound "{@sound_suspense}" with volume 0.5 and pitch (0.5 + (loop-number * 0.2)) at {_sender} for {_sender}
+        play sound "{@sound_suspense}" with volume 0.5 and pitch (0.5 + (loop-number * 0.2)) at {_target} for {_target}
+        
+        wait 1 second
+        
+        # Check Integrity
+        if {teleporter.pending_teleport.%{_sender}%} is not set:
+            stop
+        if {teleporter.pending_teleport.%{_target}%} is not set:
+            stop
+            
+    # Final Execution
+    delete {teleporter.pending_teleport.%{_sender}%}
+    delete {teleporter.pending_teleport.%{_target}%}
+    
+    play sound "{@sound_success}" at {_sender} for {_sender}
+    play sound "{@sound_success}" at {_target} for {_target}
+    
+    if {_type} is "TO":
+        teleport {_sender} to {_target}
+    else:
+        teleport {_target} to {_sender}
+
+function cancelPendingTeleport(p: player, reason: text):
+    delete {teleporter.pending_teleport.%{_p}%}
+    updateScoreboard({_p}, "teleport_suspense", "&cWARP FAILED", 100, 2 seconds)
+    send "{@prefix}&cTeleport interrupted: %{_reason}%" to {_p}
+
+command /teleporter:deny:
+    trigger:
+        set {_target} to player
+        if {teleporter.request.%{_target}%::sender} is set:
+            set {_sender} to {teleporter.request.%{_target}%::sender}
+            send "{@prefix}&cYou denied the request." to {_target}
+            send "{@prefix}&c%{_target}% denied your request." to {_sender}
+            play sound "{@sound_error}" at {_sender} for {_sender}
+            delete {teleporter.request.%{_target}%::*}
+
+# ===================================================================
+# --- 5. SAFETY & PERFORMANCE ---
+# ===================================================================
+
+# Periodic check for ritual integrity & Cooldown Display
+every 5 ticks:
+    loop all players:
+        # 1. Ritual Movement Check
+        if {teleporter.ritual.active.%loop-player%} is true:
+            if distance between loop-player and {teleporter.ritual.anchor.%loop-player%} > 0.5:
+                cancelTeleportRitual(loop-player, "You moved!")
+        
+        # 2. Cooldown: Blink (5s)
+        if {ability.cooldown.teleporter_blink.%loop-player's uuid%} is set:
+            set {_diff} to difference between {ability.cooldown.teleporter_blink.%loop-player's uuid%} and now
+            if {_diff} < 5 seconds:
+                set {_rem} to 5 seconds
+                subtract {_diff} from {_rem}
+                updateScoreboard(loop-player, "blink_cd", "&d&lBLINK CD &8| &f%formatTimespan({_rem})%", 80, 1 second)
+            else:
+                delete {ability.cooldown.teleporter_blink.%loop-player's uuid%}
+                removeScoreboard(loop-player, "blink_cd")
+
+        # 3. Cooldown: Network (30s)
+        if {ability.cooldown.teleporter_network.%loop-player's uuid%} is set:
+            set {_diff} to difference between {ability.cooldown.teleporter_network.%loop-player's uuid%} and now
+            if {_diff} < 30 seconds:
+                set {_rem} to 30 seconds
+                subtract {_diff} from {_rem}
+                updateScoreboard(loop-player, "net_cd", "&5&lNETWORK &8| &f%formatTimespan({_rem})%", 75, 1 second)
+            else:
+                delete {ability.cooldown.teleporter_network.%loop-player's uuid%}
+                removeScoreboard(loop-player, "net_cd")
+        
+        # 4. Cooldown: False Start (5s)
+        if {ability.cooldown.teleporter_fail.%loop-player's uuid%} is set:
+            set {_diff} to difference between {ability.cooldown.teleporter_fail.%loop-player's uuid%} and now
+            if {_diff} < 5 seconds:
+                set {_rem} to 5 seconds
+                subtract {_diff} from {_rem}
+                updateScoreboard(loop-player, "net_fail", "&c&lUNSTABLE &8| &f%formatTimespan({_rem})%", 75, 1 second)
+            else:
+                delete {ability.cooldown.teleporter_fail.%loop-player's uuid%}
+                removeScoreboard(loop-player, "net_fail")
+        
+        # 5. Cooldown: Warp Use (5m)
+        if {ability.cooldown.teleporter_warp_use.%loop-player's uuid%} is set:
+            set {_diff} to difference between {ability.cooldown.teleporter_warp_use.%loop-player's uuid%} and now
+            if {_diff} < 5 minutes:
+                set {_rem} to 5 minutes
+                subtract {_diff} from {_rem}
+                updateScoreboard(loop-player, "warp_cd", "&5&lWARP CD &8| &f%formatTimespan({_rem})%", 70, 1 second)
+            else:
+                delete {ability.cooldown.teleporter_warp_use.%loop-player's uuid%}
+                removeScoreboard(loop-player, "warp_cd")

@@ -1,0 +1,155 @@
+# ===================================================================
+# IMMORTAL ABILITY (V50 - Ground Ritual & Clean FX)
+# ===================================================================
+
+options:
+    karma_cd: 30 seconds
+    ritual_cd: 60 seconds
+
+# ===================================================================
+# --- PASSIVES: ETERNAL FORM & KARMA ---
+# ===================================================================
+# (This section is unchanged as it works perfectly)
+
+on damage:
+    if victim is a player:
+        if victim has permission "ability.immortal":
+            if victim has permission "*":
+                if {creator.enabled_abilities.%victim's uuid%::*} does not contain "immortal":
+                    stop
+            if {ability.suppressed.%victim's uuid%} is true:
+                stop
+
+            # Eternal Form
+            if damage cause is fall:
+                cancel event
+                execute console command "execute at %victim% run playsound entity.player.hurt master @s ~ ~ ~ 1 1"
+                execute console command "execute at %victim% run playsound entity.zombie.break_wooden_door master @s ~ ~ ~ 0.5 0.5"
+                execute console command "execute at %victim% run particle dust 1.0 0.0 0.0 1 ~ ~ ~ 0.3 0.1 0.3 0 15"
+                execute console command "execute at %victim% run particle cloud ~ ~ ~ 0.2 0 0.2 0.05 5"
+                stop
+            if damage cause is drowning:
+                cancel event
+                set remaining air of victim to 300 ticks
+                stop
+
+            # Karma (One-Shot Protection)
+            if final damage >= max health of victim:
+                if isOnCooldown(victim, "immortal_karma", {@karma_cd}) is true:
+                    stop
+                
+                cancel event
+                startCooldown(victim, "immortal_karma")
+                set health of victim to (max health of victim * 0.4)
+                
+                execute console command "execute at %victim% run playsound item.totem.use master @a ~ ~ ~ 1 0.8"
+                execute console command "execute at %victim% run playsound entity.elder_guardian.curse master @a ~ ~ ~ 0.5 0.5"
+                execute console command "execute at %victim% run particle totem_of_undying ~ ~1 ~ 0.5 0.5 0.5 0.5 50"
+                execute console command "execute at %victim% run particle flash ~ ~1 ~ 0 0 0 0 1"
+                
+                send title "&6&l☠ DEATH REJECTED ☠" with subtitle "&eThe Divine Will protects you." to victim for 3 seconds
+                
+                if attacker is set:
+                    send title "&c&l⚠ ATTACK NULLIFIED ⚠" with subtitle "&7Your lethal blow was denied." to attacker for 2 seconds
+                    updateActionBar(attacker, "immortal_defense", "&c&lTarget is Immortal!", 2 seconds)
+                    set {_v} to vector from victim to attacker
+                    set {_v} to normalized {_v}
+                    set {_v} to {_v} * 3.5
+                    set y of {_v} to (y of {_v} + 0.6)
+                    set velocity of attacker to {_v}
+                    execute console command "execute at %attacker% run playsound entity.generic.explode master @s ~ ~ ~ 1 0.8"
+
+# ===================================================================
+# --- ACTIVE: RESURRECTION RITUAL (Look Down + Shift + RClick) ---
+# ===================================================================
+
+on right click:
+    if player is sneaking:
+        # Check: Looking Down (Pitch > 80 degrees)
+        if pitch of player > 80:
+            if player has permission "ability.immortal":
+                
+                # --- Checks ---
+                if player has permission "*":
+                    if {creator.enabled_abilities.%player's uuid%::*} does not contain "immortal":
+                        stop
+                if {ability.suppressed.%player's uuid%} is true:
+                    updateActionBar(player, "immortal_suppress", "&cYour powers are suppressed.", 2 seconds)
+                    stop
+                
+                if isOnCooldown(player, "immortal_ritual", {@ritual_cd}) is true:
+                    stop
+
+                # --- START CHARGE (1 Second) ---
+                set {_start} to location of player
+                set {_t} to 0
+                
+                execute console command "ppo %player% add egg_crack icosphere"
+                execute console command "execute at %player% run playsound block.respawn_anchor.set_spawn master @s ~ ~ ~ 1 0.5"
+                updateActionBar(player, "immortal_ritual", "&6&lHOLD STILL... CHANNELING...", 2 seconds)
+                
+                set {immortal.ritual.active.%player's uuid%} to true
+
+                # Loop 20 ticks (1 second)
+                while {_t} < 20: 
+                    add 2 to {_t}
+                    
+                    if player is not online:
+                        delete {immortal.ritual.active.%player's uuid%}
+                        stop loop
+
+                    # Movement Check
+                    set {_current} to location of player
+                    set y-coordinate of {_current} to y-coordinate of {_start}
+                    
+                    if distance between {_current} and {_start} > 0.5: # Stricter movement check
+                        updateActionBar(player, "immortal_fail", "&cRitual Failed: You moved.", 2 seconds)
+                        execute console command "execute at %player% run playsound block.fire.extinguish master @s ~ ~ ~ 1 0.5"
+                        execute console command "ppo %player% reset"
+                        delete {immortal.ritual.active.%player's uuid%}
+                        
+                        set {_penalty_subtract} to {@ritual_cd}
+                        remove 5 seconds from {_penalty_subtract}
+                        set {ability.cooldown.immortal_ritual.%player's uuid%} to {_penalty_subtract} ago
+                        stop
+                    
+                    if mod({_t}, 5) is 0:
+                        execute console command "execute at %player% run playsound block.beacon.ambient master @s ~ ~ ~ 0.5 2"
+                    
+                    wait 2 ticks
+
+                # --- SUCCESS & EXPLOSION ---
+                startCooldown(player, "immortal_ritual")
+                delete {immortal.ritual.active.%player's uuid%}
+                execute console command "ppo %player% reset"
+                
+                heal player
+                set player's food level to 20
+                apply absorption 2 to player for 20 seconds
+                apply resistance 1 to player for 5 seconds
+                
+                # Single, Powerful Explosion
+                execute console command "execute at %player% run particle explosion_emitter ~ ~1 ~ 0 0 0 0 1"
+                execute console command "execute at %player% run playsound entity.generic.explode master @a ~ ~ ~ 1 0.7"
+                
+                loop all entities in radius 6 of player:
+                    if loop-entity is not player:
+                        damage loop-entity by 6
+                        push loop-entity away from player at speed 2.0
+                        push loop-entity upwards at speed 0.5
+                
+                send title "&a&lRESTORED" with subtitle "&7Your form is renewed." to player for 1 second
+
+# ===================================================================
+# --- CLEANUP ---
+# ===================================================================
+
+on quit:
+    if {immortal.ritual.active.%player's uuid%} is set:
+        delete {immortal.ritual.active.%player's uuid%}
+        execute console command "ppo %player% reset"
+
+on death:
+    if {immortal.ritual.active.%victim's uuid%} is set:
+        delete {immortal.ritual.active.%victim's uuid%}
+        execute console command "ppo %victim% reset"

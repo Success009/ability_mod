@@ -1,0 +1,228 @@
+# ===================================================================
+# PRACTICE DUMMY SYSTEM (V10 - Final Nested Loop Fix)
+# ===================================================================
+
+options:
+    dummy_name: "&c&lPractice Dummy"
+
+command /dummy <text> [<text>]:
+    permission: ability.op
+    permission message: &cYou cannot manage the dummies.
+    trigger:
+        
+        # --- 1. SET SPAWN LOCATION ---
+        if argument 1 is "setspawn":
+            set {dummy.config.location} to location of player
+            send "&aDummy spawn location set to your position."
+            stop
+
+        # --- 2. SET MOB TYPE ---
+        else if argument 1 is "type":
+            if argument 2 is not set:
+                send "&cUsage: /dummy type <mob>"
+                stop
+            
+            set {_input} to argument 2
+            replace all "_" in {_input} with " " 
+            set {_type} to {_input} parsed as entity type
+            
+            if {_type} is not set:
+                send "&cInvalid entity type."
+                stop
+            
+            set {dummy.config.type} to "%{_type}%"
+            send "&aDummy type set to: &e%{_type}%"
+            stop
+
+        # --- 3. SET HEALTH ---
+        else if argument 1 is "health":
+            if argument 2 is not set:
+                send "&cUsage: /dummy health <number|infinite>"
+                stop
+            
+            if argument 2 is "infinite":
+                set {dummy.config.health} to "infinite"
+                send "&aDummy health set to &eInfinite&a."
+            else:
+                set {_hp} to argument 2 parsed as number
+                if {_hp} is not set:
+                    send "&cInvalid number."
+                    stop
+                set {dummy.config.health} to {_hp}
+                send "&aDummy health set to &e%{_hp}%&a."
+            stop
+
+        # --- 4. SET AI ---
+        else if argument 1 is "ai":
+            if argument 2 is "on":
+                set {dummy.config.ai} to true
+                send "&aDummy AI enabled."
+            else if argument 2 is "off":
+                set {dummy.config.ai} to false
+                send "&aDummy AI disabled (NoAI:1b)."
+            else:
+                send "&cUsage: /dummy ai <on|off>"
+            stop
+
+        # --- 5. SET TOTEM MODE ---
+        else if argument 1 is "totem":
+            if argument 2 is "on":
+                set {dummy.config.totem} to true
+                send "&aDummy Infinite Totem enabled."
+            else if argument 2 is "off":
+                set {dummy.config.totem} to false
+                send "&aDummy Infinite Totem disabled."
+            else:
+                send "&cUsage: /dummy totem <on|off>"
+            stop
+
+        # --- 6. SET FACE MODE ---
+        else if argument 1 is "face":
+            if argument 2 is "on":
+                set {dummy.config.face} to true
+                send "&aDummy Auto-Face enabled (Will look at nearest player)."
+            else if argument 2 is "off":
+                set {dummy.config.face} to false
+                send "&aDummy Auto-Face disabled."
+            else:
+                send "&cUsage: /dummy face <on|off>"
+            stop
+
+        # --- 7. SAVE GEAR ---
+        else if argument 1 is "savegear":
+            set {dummy.loadout.helmet} to player's helmet
+            set {dummy.loadout.chestplate} to player's chestplate
+            set {dummy.loadout.leggings} to player's leggings
+            set {dummy.loadout.boots} to player's boots
+            set {dummy.loadout.hand} to player's tool
+            set {dummy.loadout.offhand} to player's offhand tool
+            send "&aYour current gear has been saved."
+            stop
+
+        # --- 8. SPAWN DUMMY ---
+        else if argument 1 is "spawn":
+            if {dummy.config.location} is not set:
+                send "&cSpawn location not set. Use /dummy setspawn."
+                stop
+            
+            if {dummy.config.type} is not set:
+                set {dummy.config.type} to "zombie"
+            
+            set {_spawn_type} to {dummy.config.type} parsed as entity type
+            
+            spawn {_spawn_type} at {dummy.config.location}
+            set {_e} to last spawned entity
+            
+            add {_e} to {dummy.active_list::*}
+            
+            # Apply Identification
+            set name of {_e} to {@dummy_name}
+            set metadata value "isDummy" of {_e} to true
+            
+            # Apply Gear
+            set helmet of {_e} to {dummy.loadout.helmet}
+            set chestplate of {_e} to {dummy.loadout.chestplate}
+            set leggings of {_e} to {dummy.loadout.leggings}
+            set boots of {_e} to {dummy.loadout.boots}
+            set tool of {_e} to {dummy.loadout.hand}
+            set offhand tool of {_e} to {dummy.loadout.offhand}
+            
+            # Apply Totem
+            if {dummy.config.totem} is true:
+                set offhand tool of {_e} to totem of undying
+                set metadata value "infiniteTotem" of {_e} to true
+
+            # Apply Face Logic
+            if {dummy.config.face} is true:
+                set metadata value "alwaysFace" of {_e} to true
+            
+            # Apply Health
+            if {dummy.config.health} is "infinite":
+                execute console command "attribute %uuid of {_e}% minecraft:generic.max_health base set 2048"
+                heal {_e}
+                apply regeneration 255 to {_e} for 9999 days
+            else if {dummy.config.health} is set:
+                execute console command "attribute %uuid of {_e}% minecraft:generic.max_health base set %{dummy.config.health}%"
+                heal {_e}
+            
+            # Apply AI
+            if {dummy.config.ai} is false:
+                add nbt compound from "{NoAI:1b,Silent:1b}" to nbt of {_e}
+            else:
+                add nbt compound from "{NoAI:0b}" to nbt of {_e}
+
+            # Effects
+            execute console command "execute at %{_e}% run playsound entity.illusioner.cast_spell master @a ~ ~ ~ 1 2"
+            execute console command "particle cloud %x-coord of {_e}% %y-coord of {_e}%+1 %z-coord of {_e}% 0.5 1 0.5 0.05 20"
+            
+            send "&aSpawned a &e%{_spawn_type}% &adummy."
+            stop
+
+        # --- 9. KILL ALL ---
+        else if argument 1 is "kill":
+            set {_count} to 0
+            loop {dummy.active_list::*}:
+                if loop-value is set:
+                    if loop-value is alive:
+                        kill loop-value
+                        add 1 to {_count}
+            delete {dummy.active_list::*}
+            send "&cKilled %{_count}% active dummies."
+            stop
+
+        # --- 10. REFRESH ---
+        else if argument 1 is "refresh":
+            set {_count} to 0
+            loop {dummy.active_list::*}:
+                if loop-value is set:
+                    if loop-value is alive:
+                        kill loop-value
+                        add 1 to {_count}
+            delete {dummy.active_list::*}
+            
+            send "&cCleared %{_count}% old dummies."
+            execute player command "/dummy spawn"
+            stop
+
+        else:
+            send "&cUsage: /dummy <setspawn|type|health|ai|totem|face|savegear|spawn|refresh|kill>"
+
+# ===================================================================
+# --- DUMMY LOGIC ---
+# ===================================================================
+
+on death:
+    if metadata value "isDummy" of victim is true:
+        clear drops
+        remove victim from {dummy.active_list::*}
+    else if name of victim is {@dummy_name}:
+        clear drops
+
+# --- INFINITE TOTEM LOGIC ---
+on resurrect:
+    if metadata value "isDummy" of entity is true:
+        if metadata value "infiniteTotem" of entity is true:
+            wait 1 tick
+            set offhand tool of entity to totem of undying
+
+# ===================================================================
+# --- TAB COMPLETION ---
+# ===================================================================
+
+on tab complete of "/dummy":
+    set tab completion for position 1 to "setspawn" and "type" and "health" and "ai" and "totem" and "face" and "savegear" and "spawn" and "refresh" and "kill"
+    
+    if tab complete argument 1 is "type":
+        set tab completion for position 2 to "warden" and "wither_skeleton" and "creeper" and "zombie" and "skeleton" and "iron_golem" and "villager" and "pillager" and "husk" and "wither" and "ender_dragon"
+    
+    if tab complete argument 1 is "ai":
+        set tab completion for position 2 to "on" and "off"
+
+    if tab complete argument 1 is "totem":
+        set tab completion for position 2 to "on" and "off"
+
+    if tab complete argument 1 is "face":
+        set tab completion for position 2 to "on" and "off"
+
+    if tab complete argument 1 is "health":
+        set tab completion for position 2 to "20" and "40" and "100" and "infinite"

@@ -1,0 +1,198 @@
+# ===================================================================
+# DRAGON WIELDER & EGG TRACKER (V10 - Full Ability Override)
+# ===================================================================
+
+# ===================================================================
+# --- 1. ADMIN TRACKING ---
+# ===================================================================
+
+command /dragon:egg:
+    permission: ability.op
+    trigger:
+        send "&5&m----------------------------------------" to player
+        send "&d&lDRAGON EGG STATUS:" to player
+        
+        if {dragon.egg.state} is "HELD":
+            set {_p} to {dragon.egg.holder}
+            send " &7Status: &aHELD by %{_p}%"
+            send " &7Location: &7%location of {_p}%"
+            
+        else if {dragon.egg.state} is "DROPPED":
+            if {dragon.egg.last_loc} is set:
+                send " &7Status: &eDROPPED (On Ground)"
+                send " &7Location: &7%{dragon.egg.last_loc}%"
+                
+                loop all dropped items in radius 5 of {dragon.egg.last_loc}:
+                    if uuid of loop-entity is {dragon.egg.uuid}:
+                        execute console command "effect give %uuid of loop-entity% glowing 10 1 true"
+            else:
+                send " &7Status: &cERROR (Location Lost)"
+            
+        else:
+            send " &7Status: &4LOST / DESTROYED"
+            
+        send "&5&m----------------------------------------" to player
+
+# ===================================================================
+# --- 2. PICKUP LOGIC (Override & Suppress) ---
+# ===================================================================
+
+on pickup of dragon egg:
+    wait 2 ticks
+    set {_p} to player
+    
+    # 1. Update State
+    set {dragon.egg.state} to "HELD"
+    set {dragon.egg.holder} to {_p}
+    delete {dragon.egg.uuid}
+    
+    # 2. POWER OVERRIDE
+    # Disable their normal class abilities immediately
+    suppressPlayerAbilities({_p})
+    
+    # Grant Dragon Wielder status
+    if {_p} does not have permission "*":
+        execute console command "lp user %{_p}% parent add sub-dragon-wielder"
+    execute console command "team join DW %{_p}%"
+    
+    # 3. Visuals
+    send title "&5&lDRAGON WIELDER" with subtitle "&7Your mortal abilities are replaced by the Void." to {_p}
+    execute console command "execute at %{_p}% run playsound entity.ender_dragon.growl master @a ~ ~ ~ 1 0.8"
+    execute console command "effect give %{_p}% glowing 999999 0 true"
+
+# ===================================================================
+# --- 3. DROP LOGIC (Restore) ---
+# ===================================================================
+
+on drop of dragon egg:
+    wait 2 ticks
+    set {_p} to player
+    
+    # 1. Update State
+    set {dragon.egg.state} to "DROPPED"
+    set {dragon.egg.uuid} to uuid of event-entity
+    delete {dragon.egg.holder}
+    
+    # 2. RESTORE NORMAL STATE
+    # Remove Dragon Wielder status
+    execute console command "lp user %{_p}% parent remove sub-dragon-wielder"
+    execute console command "team leave %{_p}%"
+    
+    # Give back their original class abilities
+    restorePlayerAbilities({_p})
+    
+    # 3. Visuals
+    execute console command "effect clear %{_p}% glowing"
+    execute console command "effect give %uuid of event-entity% glowing 999999 0 true"
+    
+    updateActionBar({_p}, "dragon_drop", "&cYou have dropped the Dragon Egg. Your original powers return.", 2 seconds)
+    
+    # 4. Active Tracker Loop
+    while {dragon.egg.state} is "DROPPED":
+        if event-entity is not set:
+            triggerEggDestruction({dragon.egg.last_loc})
+            stop loop
+        if event-entity is dead:
+            triggerEggDestruction({dragon.egg.last_loc})
+            stop loop
+
+        set {_loc} to location of event-entity
+        set {dragon.egg.last_loc} to {_loc}
+        
+        if y-coordinate of {_loc} < -70:
+            triggerEggDestruction({_loc})
+            stop loop
+            
+        if event-entity is on fire:
+            triggerEggDestruction({_loc})
+            stop loop
+            
+        wait 5 ticks
+        if {dragon.egg.state} is not "DROPPED":
+            stop loop
+
+# ===================================================================
+# --- 4. DESTRUCTION FUNCTION ---
+# ===================================================================
+
+function triggerEggDestruction(loc: location):
+    if {dragon.egg.state} is not "LOST":
+        set {dragon.egg.state} to "LOST"
+        delete {dragon.egg.uuid}
+        delete {dragon.egg.holder}
+        
+        broadcast ""
+        broadcast "&5&l⚡ THE DRAGON EGG HAS BEEN DESTROYED! ⚡"
+        broadcast "&7It has returned to the void..."
+        broadcast ""
+        
+        if {_loc} is set:
+            strike lightning effect at {_loc}
+            execute console command "execute at %{_loc}% run playsound entity.wither.death master @a ~ ~ ~ 1 0.5"
+
+# ===================================================================
+# --- 5. PASSIVE FOR HOLDER ---
+# ===================================================================
+every 2 seconds:
+    if {dragon.egg.state} is "HELD":
+        set {_p} to {dragon.egg.holder}
+        if {_p} is set:
+            if {_p} is online:
+                execute console command "execute at %{_p}% run team join DW @e[type=!player,distance=..20,team=!DW]"
+
+# ===================================================================
+# --- 6. DOMAIN TRIGGER (Updated) ---
+# ===================================================================
+on place of dragon egg:
+    # 1. Cancel Placement
+    cancel event
+    
+    # 2. Check Permissions
+    if player has permission "sub.dragon" or "*":
+        
+        # 3. Cooldown/Active Check
+        if {domain.active.%player%} is set:
+            send "&cYour Domain is already active!" to player
+            stop
+            
+        # 4. CHARGING SEQUENCE
+        # Note: We don't need to suppress abilities here because we already did it on pickup
+        
+        updateActionBar(player, "dragon_channel", "&5&lCHANNELING THE VOID...", 2 seconds)
+        execute console command "execute at %player% run playsound block.respawn_anchor.charge master @s ~ ~ ~ 1 0.5"
+        execute console command "execute at %player% run particle portal ~ ~1 ~ 0.5 1 0.5 1 50"
+        
+        wait 30 ticks
+        
+        # 5. TRIGGER EXPANSION
+        startDomainExpansion(player, location of event-block)
+        updateActionBar(player, "dragon_domain", "&5&lDOMAIN EXPANSION: DIMENSIONAL RIFT", 2 seconds)
+        
+    else:
+        send "&c&lTHE EGG IS UNSTABLE." to player
+        execute console command "execute at %player% run playsound block.respawn_anchor.deplete master @s ~ ~ ~ 1 2"
+
+# ===================================================================
+# --- 7. INVENTORY RESTRICTIONS ---
+# ===================================================================
+
+on inventory click:
+    if event-item is dragon egg:
+        if event-inventory is not player's inventory:
+            cancel event
+            send "&cThe Dragon Egg refuses to be contained." to player
+            close player's inventory
+
+    if "%click type%" contains "SHIFT":
+        if event-item is dragon egg:
+            cancel event
+            send "&cThe Dragon Egg refuses to be contained." to player
+
+on inventory pickup:
+    if event-item is dragon egg:
+        cancel event
+        push event-entity upwards at speed 0.2
+
+on quit:
+    if player has dragon egg:
+        execute console command "effect clear %player% glowing"

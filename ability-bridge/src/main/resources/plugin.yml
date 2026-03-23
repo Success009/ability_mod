@@ -1,0 +1,32 @@
+name: Ability
+version: 2.0.0
+main: com.ability.bridge.AbilityBridge
+api-version: 1.21
+author: success009
+
+# Paper downloads Firebase automatically
+libraries:
+  - com.google.firebase:firebase-admin:9.2.0
+  - org.slf4j:slf4j-simple:2.0.9
+
+commands:
+  link:
+    description: Generate a 6-digit code to link your Minecraft account with the website
+    usage: /link
+    permission: ability.link
+  bridge:
+    description: Admin command for Ability Bridge
+    usage: /bridge <reload>
+    permission: bridge.admin
+  bridgelocate:
+    description: Internal locator helper
+    usage: /bridgelocate <player> <world> <type> <key>
+    permission: bridge.admin
+
+permissions:
+  ability.link:
+    description: Allows players to generate account linking codes
+    default: true
+  bridge.admin:
+    description: Allows administrative control over the bridge plugin
+    default: op

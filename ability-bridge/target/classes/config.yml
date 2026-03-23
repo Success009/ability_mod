@@ -1,0 +1,62 @@
+# Ability Bridge Configuration
+# Version 2.0.0
+
+firebase:
+  # Path to your Firebase service account JSON file relative to the plugin folder
+  service-account-file: "firebase-service-account.json"
+  # Your Firebase Database URL (e.g., https://your-project-id.firebaseio.com)
+  database-url: "https://community-canvas-255fa-default-rtdb.firebaseio.com/"
+
+features:
+  # Toggle game <-> web chat synchronization
+  chat-bridge: true
+  # Toggle TPS/RAM/Player status updates to Firebase
+  server-monitor: true
+  # Toggle automatic leaderboard updates
+  leaderboards: true
+  # Toggle /link account command
+  linking: true
+
+chat-settings:
+  # Send Minecraft join messages to web chat
+  log-joins: true
+  # Send Minecraft quit messages to web chat
+  log-quits: true
+  # Send Minecraft death messages to web chat
+  log-deaths: true
+
+  # How messages from the website appear in Minecraft chat
+  formats:
+    # Use & for color codes
+    # Available placeholders: {name}, {message}, {prefix}
+    
+    # Message from a logged-in user on the website
+    web-user: "&8[&bWEB&8] &f{name}&7: &f{message}"
+    
+    # Message from an anonymous user on the website
+    web-anonymous: "&8[&7WEB-ANON&8] &7{name}&7: &f{message}"
+    
+    # Message sent from the Admin Dashboard
+    admin-panel: "&8[&cADMIN-PANEL&8] &f{name}&7: &e{message}"
+    
+    # Prefix for all bridge-related messages in-game
+    plugin-prefix: "&8[&bAbility&8] "
+
+    # Account linking success message (sent when /link is used)
+    # Available placeholders: {code}
+    link-message:
+      - ""
+      - "&8━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - "  &6&lAccount Linking"
+      - ""
+      - "  &7Your 6-digit code: &a&l{code}"
+      - ""
+      - "  &e→ Enter this code on the website"
+      - "  &e→ Code expires in 5 minutes"
+      - "&8━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      - ""
+
+# Performance Tuning
+performance:
+  # How often (in seconds) the server status updates to Firebase
+  monitor-interval: 15

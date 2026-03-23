@@ -1,0 +1,785 @@
+{
+  "Ability": {
+    "abilities": [
+      {
+        "color": "#11ff00",
+        "description": "The being whose sole purpose is to create and grand abilities maintaining balance of the existence itself.",
+        "details": [
+          "???"
+        ],
+        "id": 1,
+        "name": "Creator",
+        "type": "God"
+      },
+      {
+        "color": "#55ffff",
+        "description": "Temporarily phase into Spectator Mode to pass through walls and scout.",
+        "details": [
+          "Activation: Look Down and press Swap Item (F).",
+          "Effect: Enters Spectator Mode for a short duration to pass through walls.",
+          "Exit: Left-Click to cancel the form early."
+        ],
+        "id": 2,
+        "name": "Spector",
+        "type": "Utility",
+        "videoUrl": "https://www.youtube.com/watch?v=K7K8yM7T-l0"
+      },
+      {
+        "color": "#5555ff",
+        "description": "Enchant items directly without RNG using a custom ritual system.",
+        "details": [
+          "Start: Left-Click an Enchanting Table with the item you want to enchant.",
+          "Navigate: Tap Sneak to cycle through enchantments, Right-Click to select.",
+          "Channeling: Stand completely still after confirming to complete the ritual."
+        ],
+        "id": 3,
+        "name": "Enchanter",
+        "type": "Support",
+        "videoUrl": "https://www.youtube.com/watch?v=eyze_u8MOpM"
+      },
+      {
+        "color": "#ff7b00",
+        "description": "Change your size and stats to adapt to any situation.",
+        "details": [
+          "Transform: Hold Sneak and press Swap Item (F).",
+          "Control: Look Up while transforming to Grow, Look Down to Shrink.",
+          "Colossal: While Large, Look Up and press F again to charge the ultimate form."
+        ],
+        "id": 4,
+        "name": "Shifter",
+        "type": "Utility",
+        "videoUrl": "https://www.youtube.com/watch?v=q6u_fnMLzd4"
+      },
+      {
+        "color": "#ffffff",
+        "description": "Grant flight to yourself or allies, and levitate enemies.",
+        "details": [
+          "Self Flight: Hold Sneak, Look Down, and Right-Click.",
+          "Ally Flight: Hold Sneak and Right-Click another player to grant them flight.",
+          "Levitate: Hold Sneak and Right-Click a mob to lift them into the air."
+        ],
+        "id": 5,
+        "name": "Flotter",
+        "restrictions": "",
+        "type": "Movement"
+      },
+      {
+        "color": "#00aa00",
+        "description": "Cast powerful blessings and curses using a ritual menu system.",
+        "details": [
+          "Menu: Look Down + Sneak + F to open the Grimoire.",
+          "Navigate: Sneak to cycle options, Swap Item (F) to confirm.",
+          "Ritual: Select a target and tier to cast. Movement cancels the process."
+        ],
+        "id": 6,
+        "name": "Wizard",
+        "restrictions": "",
+        "type": "Support"
+      },
+      {
+        "color": "#aa00aa",
+        "description": "A brawler class focused on physics manipulation and combo attacks.",
+        "details": [
+          "Bankai: Jump 3 times while Sneaking to charge, then hit an enemy to unleash.",
+          "Grab: Hold Sneak and Right-Click an entity to pick them up.",
+          "Throw: Left-Click while holding an entity to launch them.",
+          "Slam: Look Down and Left-Click while holding an entity to slam them into the ground.",
+          "Clutch: Hold Sneak and Left-Click in mid-air to catch yourself."
+        ],
+        "id": 7,
+        "name": "Strengther",
+        "type": "Combat",
+        "videoUrl": "https://www.youtube.com/watch?v=FioUMFM3Y44"
+      },
+      {
+        "color": "#aa0000",
+        "description": "A tank class with death prevention and self-resurrection capabilities.",
+        "details": [
+          "Ritual: Hold Sneak, Look Down, and Right-Click to channel.",
+          "Effect: Fully heals you and knocks back surrounding enemies after channeling."
+        ],
+        "id": 8,
+        "name": "Immortal",
+        "type": "Survival"
+      },
+      {
+        "color": "#555555",
+        "description": "Harvest souls to fuel rapid dashes and lifesteal attacks.",
+        "details": [
+          "Harvest: Kill mobs or players to charge the Reaper's Scythe with souls.",
+          "Dash: Hold Sneak and Right-Click with the Scythe to consume a soul and dash forward."
+        ],
+        "id": 9,
+        "name": "Reaper",
+        "restrictions": "",
+        "type": "Combat"
+      },
+      {
+        "color": "#ffff55",
+        "description": "Master of space and rifts, capable of instant blinks and player transportation.",
+        "details": [
+          "Blink: Hold Sneak (Shift) and press F to instantly teleport where you are looking.",
+          "Network: Look Down + Sneak + F to open the Warp Menu and Signal System.",
+          "Rifts: Manage up to 10 personal warp points or request to teleport to other players."
+        ],
+        "id": 10,
+        "name": "Teleporter",
+        "type": "Movement"
+      },
+      null,
+      {
+        "color": "#ff5555",
+        "description": "Locate specific structures and biomes anywhere in the world.",
+        "details": [
+          "Activate: Right-Click with the Grand Compass to open the menu.",
+          "Navigate: Tap Sneak to cycle through options, press Swap Item (F) to confirm.",
+          "Warp: Once found, click the chat message or Look Down + F to initiate a safe warp."
+        ],
+        "id": 12,
+        "name": "Locator",
+        "type": "Utility"
+      },
+      {
+        "color": "#8b4513",
+        "description": "An excavation class that can move through the earth and process ores automatically.",
+        "details": [
+          "Equip: Use /mole to summon the specialized Mole Pickaxe.",
+          "Burrow: Hold the Pickaxe, hold Sneak, and Right-Click the ground to tunnel.",
+          "Stop: Release Sneak to stop burrowing and resurface."
+        ],
+        "id": 13,
+        "name": "Mole",
+        "type": "Utility"
+      }
+    ],
+    "announcements": {
+      "0": {
+        "content": "<p><strong>Type:</strong> Mining</p><p>The Mole ability has been added to the server! Master underground mining with instant digging capabilities and ground dashing powers.</p>",
+        "timestamp": 1689854400000,
+        "title": "New Ability: Mole Added!",
+        "votes": {
+          "43-231-208-69": "like",
+          "43-231-211-120": "like",
+          "45-64-161-129": "like"
+        }
+      },
+      "1": {
+        "content": "<p><strong>Active:</strong> /freeze - Encase nearby players in ice for 5 seconds.</p><p><strong>Passive:</strong> No freezing damage, can breathe and swim faster in water.</p>",
+        "timestamp": 1689422400000,
+        "title": "New Sub-Ability Concept: Ice",
+        "votes": {
+          "43-231-208-182": "like",
+          "43-231-208-69": "like",
+          "43-231-211-120": "like",
+          "45-64-161-129": "like"
+        }
+      },
+      "-Obupg8snKS_fcAcO_IV": {
+        "content": "<p style=\"line-height:1.38\"><strong>Name: Mole</strong></p><p style=\"line-height:1.38\"><strong>Modifications:</strong></p><p style=\"line-height:1.38\"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Tool:</strong></p><p style=\"line-height:1.38\"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Fortune V --&gt;&nbsp; Fortune III</strong></p><p style=\"line-height:1.38\"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Efficiency X --&gt; Efficiency VI</strong></p><p style=\"line-height:1.38\"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Skill:&nbsp;</strong></p><p style=\"line-height:1.38\"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Mining radius ++</strong></p><p style=\"line-height:1.38\"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Xp Consumption + (Was slightly broken previously)</strong></p><p style=\"line-height:1.38\"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Mining movement velocity +</strong></p><p style=\"line-height:1.38\"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Mineable blocks ++++</strong></p><p style=\"line-height:1.38\"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Remove Skill:</strong></p><p style=\"line-height:1.38\"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;X Ray -- (Was deemed to be overpowered and slightly broken anyway)</strong></p><p style=\"line-height:1.38\"><strong>@All changes are finalized and updated.//</strong></p><p><strong>​</strong></p>",
+        "timestamp": 1760850002103,
+        "title": "Ability modification",
+        "votes": {
+          "43-231-208-182": "like",
+          "43-231-208-69": "like",
+          "43-231-211-120": "like",
+          "45-64-161-129": "like"
+        }
+      },
+      "-OgMxHOuqrstUqF6gFcf": {
+        "comments": {
+          "-OkF-9B-QLGbAvyZhuEV": {
+            "ign": "success009",
+            "replies": {
+              "-OkF-DbCYzYaCVAlgiAx": {
+                "ign": "success009",
+                "text": "Testing reply feature.",
+                "timestamp": 1769795021573,
+                "uid": "IHBGA0fWiLNBheAPdabJCQCEW2H3"
+              },
+              "-OkF9ckFhF63KDxJ5tGg": {
+                "ign": "Admin",
+                "text": "good",
+                "timestamp": 1769797750095,
+                "uid": "IHBGA0fWiLNBheAPdabJCQCEW2H3"
+              }
+            },
+            "text": "Testing comment feature.",
+            "timestamp": 1769795003440,
+            "uid": "IHBGA0fWiLNBheAPdabJCQCEW2H3"
+          }
+        },
+        "content": "<p>The official resource pack for the server is in development. So, the members of the servers are allowed to submit their models for the custom weapons. Postulates</p><p>- The current audition only has the reaper scythe as a candidate.</p><p>-The model cannot be higher than 32*32 resolution.</p><p>-Both 2D and 3D models are accepted ,additional animation and placement file should also be attached together.</p><p>It must be noted that your model may not be 'fully' implemented.Submit in messenger chat of SMP or send email at<span style=\"background-color: rgb(250, 244, 192)\"> </span><span style=\"background-color: rgb(250, 244, 192);color: rgb(68, 71, 70);font-size: 16px\">visionadhikari8@gmail.com</span>​</p>",
+        "status": "published",
+        "timestamp": 1765633502519,
+        "title": "Custom Model Audition",
+        "votes": {
+          "160-250-254-93": "dislike",
+          "27-34-70-147": "like",
+          "43-231-208-182": "like",
+          "43-231-208-69": "like",
+          "43-231-211-120": "like",
+          "45-64-161-129": "like",
+          "IHBGA0fWiLNBheAPdabJCQCEW2H3": "like"
+        }
+      },
+      "-OkCombatUpdate": {
+        "content": "<p><strong>Combat System Redesigned!</strong></p><p>The server's combat system has received a major visual and mechanical overhaul. You can now track your combat status more effectively.</p><ul><li><strong>New Scoreboard:</strong> A high-fidelity sidebar now displays your opponent's name and remaining combat time.</li><li><strong>Extended Timer:</strong> Combat now lasts for <strong>30 seconds.</strong></li><li><strong>Combat Log Detection:</strong> Leaving the server while in combat will now be announced server-wide.</li><li><strong>XP Bar Freed:</strong> The combat timer has been moved entirely to the scoreboard, returning your XP bar to its original purpose.</li></ul><p><strong><br></strong></p><p><strong>Locator Ritual Polish:</strong></p><ul><li><strong>Improved UI:</strong> The Grand Compass menu now features viewport scrolling for long lists and a dedicated <strong>Back (Q key)</strong> function.</li></ul>",
+        "status": "published",
+        "timestamp": 1770200000000,
+        "title": "Major Update: Combat Overhaul & Ritual Polish",
+        "votes": {
+          "IHBGA0fWiLNBheAPdabJCQCEW2H3": "like"
+        }
+      },
+      "-OkLocatorFix": {
+        "content": "<p><strong>The Locator ability has been fully restored!</strong></p><p>I have optimized the scanning systems to ensure all structures and biomes can be found accurately across all dimensions. The interface has been revamped for a much smoother and more intuitive experience.</p><p><strong>Updated Controls:</strong></p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Navigation:</strong> Use Sneak to cycle through the menu options.</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Selection:</strong> Press F (Swap Item) to confirm your selection.</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Warping:</strong> Once a location is found, simply click the message in chat or look fully down and press F to warp safely.</p><p>Teleportation is now safer with automatic height adjustment and slow falling. Happy exploring!</p>",
+        "status": "published",
+        "timestamp": 1769848000000,
+        "title": "Ability Update: Locator Fixed!"
+      },
+      "-OkReaperUpdate": {
+        "content": "<p><strong>Reaper Update:</strong></p><p>A new passive ability has been added to the Reaper class. You are now permanently immune to all projectile damage while holding the Scythe.</p>",
+        "status": "published",
+        "timestamp": 1770100000000,
+        "title": "Ability Update: Reaper Passive Added"
+      },
+      "-OkWizardRework": {
+        "content": "<p><strong>Wizard Rework:</strong></p><p>The Wizard class has moved from chat commands to a menu-based ritual system.</p><ul><li><strong>Activation:</strong> Look Down + Sneak + F to open the Grimoire.</li><li><strong>Spells:</strong> Choose between Blessings (Buffs) and Curses (Debuffs).</li><li><strong>Targeting:</strong> Select a player from the menu.</li><li><strong>Scaling:</strong> Select Tier I, II, or III for increased duration and cost.</li></ul>",
+        "status": "published",
+        "timestamp": 1770280000000,
+        "title": "Ability Rework: Wizard"
+      },
+      "-OkScoreboardRework": {
+        "content": "<p><strong>Global Scoreboard Standards Updated!</strong></p><p>I have completely overhauled how time is displayed on the server to provide a cleaner and more professional experience.</p><ul><li><strong>New Formatting:</strong> Conjunctions like 'and' have been removed. Timers now use clean shorthand (e.g., 4m 14s).</li><li><strong>Smart Precision:</strong> Seconds and decimals are hidden for long-duration timers, while high precision is maintained for short cooldowns under 1 minute.</li><li><strong>Personal Timer:</strong> All members can now use <strong>/timer set <time></strong> to track their own tasks directly on the sidebar! (Delete with <strong>/timer delete</strong>).</li></ul>",
+        "status": "published",
+        "timestamp": 1770450000000,
+        "title": "System Update: Scoreboard & Personal Timers"
+      },
+      "-OkTeleporterPolish": {
+        "content": "<p><strong>Teleporter Ability Polished!</strong></p><p>The Teleporter class has received a major mechanical update to improve interaction consistency and UI feedback.</p><ul><li><strong>Blink Refinement:</strong> Blink activation has been moved to <strong>Shift + F</strong> to prevent accidental triggers and align with other class controls.</li><li><strong>Full UI Integration:</strong> All Teleporter cooldowns (Network, Blink, and Warp Points) are now fully integrated into the new scoreboard system.</li><li><strong>Spatial Stability:</strong> Improved safety checks for blinking to prevent getting stuck in walls or falling into hazards.</li></ul>",
+        "status": "published",
+        "timestamp": 1770451000000,
+        "title": "Ability Update: Teleporter Polish"
+      }
+    },
+    "leaderboard": {
+      "093c0643-61e6-3008-976a-716875ad4a45": {
+        "deaths": 43,
+        "kills": 9,
+        "lastSeen": 1769847097836,
+        "name": "HardikKharel"
+      },
+      "76daa252-cd84-30d0-9d5e-8e90529aea4d": {
+        "deaths": 433,
+        "kills": 200,
+        "lastSeen": 1770440428706,
+        "name": "success009"
+      }
+    },
+    "minecraft": {
+      "chatLogs": {
+        "-OkERy9672g6Vkk6oHaY": {
+          "message": "Testing call from first endpoint (_)",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769785779140
+        },
+        "-OkEt6hc9gjm-kqohGot": {
+          "message": "Testing from Admin module",
+          "player": "Admin",
+          "source": "WEB",
+          "timestamp": 1769793158298
+        },
+        "-OkHPgCX9Rb9Pc9iolQw": {
+          "message": "testing",
+          "player": "Anonymous",
+          "source": "WEB",
+          "timestamp": 1769835513103
+        },
+        "-OkHPnkZqT2LIB60Dt7S": {
+          "message": "f",
+          "player": "Anonymous",
+          "source": "WEB",
+          "timestamp": 1769835544011
+        },
+        "-OkHy8nGCCrZuY5zAnjt": {
+          "message": "HardikKharel joined the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1769844809205
+        },
+        "-OkHyCq_H59SnOQtPWtT": {
+          "message": "HardikKharel left the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1769844825715
+        },
+        "-OkHyF2PB0LbXLpL1cV7": {
+          "message": "HardikKharel joined the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1769844834728
+        },
+        "-OkHyQ67NUVm-SMpp16W": {
+          "message": "hay",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769844880111
+        },
+        "-OkHyQm-mG-npK8ofo7d": {
+          "message": "use /link",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769844882852
+        },
+        "-OkHyX2VIgIiuqGiCz8y": {
+          "message": "open https://success0.fr.to/ability",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769844908548
+        },
+        "-OkHyk87fDZReLPM6kUF": {
+          "message": "link here\\",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769844966268
+        },
+        "-OkHylDdBymwTENBMAB6": {
+          "message": "clink in link\\",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769844970702
+        },
+        "-OkHypvua5jXU8RyqhqZ": {
+          "message": "bro",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769844989988
+        },
+        "-OkHyrUUhRxFDQsMm37H": {
+          "message": "Live Bridge",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769844996360
+        },
+        "-OkHz1B4CeLUSBWB8eE0": {
+          "message": "hmm",
+          "player": "HardikKharel",
+          "source": "WEB",
+          "timestamp": 1769845040181
+        },
+        "-OkHz1Hcyvh4IHvY5m74": {
+          "message": "linked",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769845040597
+        },
+        "-OkHz3EegTxul7IdKc_L": {
+          "message": "i don't see any thing here rn",
+          "player": "HardikKharel",
+          "source": "MINECRAFT",
+          "timestamp": 1769845048504
+        },
+        "-OkI-OqurQMYwCMN_p3C": {
+          "message": "see in code",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769845399270
+        },
+        "-OkI-PqNtazJfJpttwE8": {
+          "message": "in dc",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769845403333
+        },
+        "-OkI-qqO6cZxaqvuJW4V": {
+          "message": "ok",
+          "player": "Admin",
+          "source": "WEB",
+          "timestamp": 1769845518014
+        },
+        "-OkI-uZIJL2RZn3BdH-7": {
+          "message": "ez",
+          "player": "Admin",
+          "source": "WEB",
+          "timestamp": 1769845533244
+        },
+        "-OkI0HbbuNuKh4q_0Z6X": {
+          "message": "HardikKharel",
+          "player": "HardikKharel",
+          "source": "MINECRAFT",
+          "timestamp": 1769845631669
+        },
+        "-OkI30AjhuC6a1HHX2tR": {
+          "message": "load",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1769846346792
+        },
+        "-OkI37yH5yDPlk03gXYy": {
+          "message": "ez",
+          "player": "Anonymous",
+          "source": "WEB",
+          "timestamp": 1769846378662
+        },
+        "-OkI3Hre8zOpn00ORn5a": {
+          "message": "fuck ya",
+          "player": "HardikKharel",
+          "source": "WEB",
+          "timestamp": 1769846419231
+        },
+        "-OkI4vE9GBoXKEeydD_4": {
+          "message": "HardikKharel fell from a high place",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1769846846615
+        },
+        "-OkI57ljGJtMlBa8uuaw": {
+          "message": "-512 -369",
+          "player": "HardikKharel",
+          "source": "MINECRAFT",
+          "timestamp": 1769846902076
+        },
+        "-OkI5sZSc-9txtjdaJUI": {
+          "message": "HardikKharel left the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1769847097834
+        },
+        "-OkP8PLJtnhs2u_a1ouJ": {
+          "message": ".",
+          "player": "success009",
+          "source": "MINECRAFT",
+          "timestamp": 1769965201092
+        },
+        "-OkPC7XAv3WHkPQdiL4a": {
+          "message": "success009 left the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1769966176700
+        },
+        "-OkTqwTML7iHbZlXFzSj": {
+          "message": "InstanceMerge",
+          "player": "success009",
+          "source": "WEB",
+          "timestamp": 1770044246217
+        },
+        "-OkUDuvNpk4u8BRecvuP": {
+          "message": "success009 joined the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770050531342
+        },
+        "-OkUELcxCPOV4c1wjWZJ": {
+          "message": "success009 left the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770050644866
+        },
+        "-OkUEo-a2DGKYvdsnlAy": {
+          "message": "success009 joined the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770050765147
+        },
+        "-OkUIIoFyjXkCsFaZQeu": {
+          "message": "success009 left the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770051681858
+        },
+        "-OkUIKIN2d9ZsTZ9R62j": {
+          "message": "success009 joined the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770051687946
+        },
+        "-OkUJ-LEmADPx7FGeUhq": {
+          "message": "success009 fell from a high place",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770051864257
+        },
+        "-OkULVS6Nn5IekY1Dj1M": {
+          "message": "success009 left the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770052520057
+        },
+        "-OkgSZNy4m8gbeqpnMrR": {
+          "message": "AYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+          "player": "Anonymous",
+          "source": "WEB",
+          "timestamp": 1770272475075
+        },
+        "-OkgTFcx35zMb2JPs2wc": {
+          "message": "hello",
+          "player": "Admin",
+          "source": "WEB",
+          "timestamp": 1770272656285
+        },
+        "-OkgTOBnXcXytCLr1czO": {
+          "message": "NAMASTEEEEEEEEEE HAM SAB KUCH SAMAJTEEEEEE",
+          "player": "Anonymous",
+          "source": "WEB",
+          "timestamp": 1770272691362
+        },
+        "-OkgTQswpOLYuyhxvQZU": {
+          "message": "ok",
+          "player": "Admin",
+          "source": "WEB",
+          "timestamp": 1770272702390
+        },
+        "-Okn3kjp94QcUZWZRcor": {
+          "message": "success009 joined the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770383412593
+        },
+        "-OknANdQh4KFj8EX2FZs": {
+          "message": "success009 fell from a high place",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770385148815
+        },
+        "-OknFESb4XGfFEzra1Qs": {
+          "message": "i am in right now",
+          "player": "success009",
+          "source": "MINECRAFT",
+          "timestamp": 1770386421906
+        },
+        "-Oko0EncLFAhmPmUHi9-": {
+          "message": "success009 left the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770399268214
+        },
+        "-OkqTDAI7zPGQ1ciV8Zt": {
+          "message": "success009 joined the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770440418610
+        },
+        "-OkqTFboVznq_VaSfX8r": {
+          "message": "success009 left the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770440428625
+        },
+        "-OkqTHUsYdJLWt0oMGu9": {
+          "message": "success009 joined the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770440436306
+        },
+        "-Okqazu0oQyqMZBRFBo9": {
+          "message": "success009 fell from a high place",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770442719005
+        },
+        "-Okqn4GPYM02yRTksz-O": {
+          "message": "success009 joined the game",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770445886861
+        },
+        "-OkqtFoJ6O2i12SBG1f4": {
+          "message": "success009 was doomed to fall",
+          "player": "Server",
+          "source": "MINECRAFT",
+          "timestamp": 1770447507012
+        }
+      },
+      "onlinePlayers": {
+        "76daa252-cd84-30d0-9d5e-8e90529aea4d": {
+          "name": "success009",
+          "op": true
+        }
+      },
+      "status": {
+        "maxPlayers": 20,
+        "memory": {
+          "allocated": 1120,
+          "free": 356,
+          "max": 1736,
+          "used": 764
+        },
+        "online": true,
+        "playerCount": 1,
+        "serverName": "Paper",
+        "timestamp": 1770448188450,
+        "tps": 20,
+        "version": "1.21.4-232-12d8fe0 (MC: 1.21.4)"
+      }
+    },
+    "rules": [
+      {
+        "description": "Please refrain from excessive and repetitive messages in the chat.",
+        "order": 1,
+        "title": "No Spam"
+      },
+      {
+        "description": "Do not advertise other servers, products, or services unrelated to Ability SMP.",
+        "order": 2,
+        "title": "No Advertisement"
+      },
+      {
+        "description": "Cheats and exploits are strictly prohibited. Play fairly.",
+        "order": 3,
+        "title": "Cheating or Hacking"
+      },
+      {
+        "description": "Keep the chat friendly and suitable for all ages. No inappropriate content.",
+        "order": 4,
+        "title": "Keep Chat Friendly"
+      },
+      {
+        "description": "Lag machines are strictly prohibited and will result in a permanent ban.",
+        "order": 5,
+        "title": "No Lag Machines"
+      },
+      {
+        "description": "All kinds of chunk loaders are prohibited because they can cause server lag.",
+        "order": 6,
+        "title": "No Chunk Loaders"
+      },
+      {
+        "description": "Most importantly, have fun exploring and using your abilities!",
+        "order": 7,
+        "title": "Have Fun!"
+      }
+    ],
+    "security": {
+      "users": {
+        "IHBGA0fWiLNBheAPdabJCQCEW2H3": {
+          "ign": "success009",
+          "linkedAt": 1769775300316,
+          "uuid": "76daa252-cd84-30d0-9d5e-8e90529aea4d"
+        },
+        "o10AjW81mdWFXV4WpteVsQRmNlC3": {
+          "ign": "HardikKharel",
+          "linkedAt": 1769846411393,
+          "uuid": "093c0643-61e6-3008-976a-716875ad4a45"
+        }
+      }
+    },
+    "subAbilities": {
+      "0": {
+        "color": "#ff5500",
+        "description": "A blessing of Dragons.\nEven feared by God's.",
+        "drawbacks": [
+          "Wielder's location is broadcasted all players near 100 blocks.",
+          "The power completely suppresses the wielders main ability."
+        ],
+        "id": 1,
+        "name": "Dragon Wielder",
+        "rarity": "Mythical HT",
+        "skills": [
+          "Dragon Instinct: Makes all nearby entities / players visible through walls (CD: 2 min, DUR: 5 sec, Cost: 5 mana, Radius: 70 blocks)",
+          "Dragon Vision: See in dark (Passive)",
+          "All hostile entities are passive to wielder",
+          "Can shoot a dragon's breath (CD: 5 min, Cost: 3 mana)",
+          "Can use of skill to deactivate all abilities of nearby players (CD: 10 min, Cost: 20 mana, Radius: 50 blocks)"
+        ],
+        "type": "Combat"
+      },
+      "1": {
+        "color": "#00aa00",
+        "description": "The power of undead lord.\nEven feared by Mightest Devils.",
+        "drawbacks": [
+          "Starts receives heat and damage when under sun for longer than 2 min"
+        ],
+        "id": 2,
+        "name": "Undead",
+        "rarity": "Legendary HT",
+        "skills": [
+          "Can activate a skill to become emobile but invincible (CD: 60 sec, DUR: 5 sec, Cost: 9 mana)",
+          "Aura of Decay: Damage all entities and heal for damage dealt to per players (CD: 60 sec, Cost: 5 mana, Radius: 10 blocks)",
+          "All overworld undead mobes are passive to wielder (Doesn't include bosses)"
+        ],
+        "type": "Survival"
+      },
+      "2": {
+        "color": "#ffffff",
+        "description": "A stealth-focused ability allowing complete invisibility.",
+        "id": 6,
+        "name": "Unseen",
+        "rarity": "Epic HT",
+        "skills": [
+          "Go completely invisible with no particle effects (CD: 5 sec, DUR: infinite toggle)",
+          "Cannot stay hidden against 'Dragon instinct'"
+        ],
+        "type": "Tactical"
+      },
+      "-OaKpo-5bmbEJoEdI_Dz": {
+        "color": "#db0000",
+        "description": "This Sub-ability manifest manipulation potential off Heat\nHaving immunity and scorching capabilities of Fire",
+        "drawbacks": [
+          "The wielder receives damage when in contact with water",
+          "The wielder may receive cold damage."
+        ],
+        "id": 5,
+        "name": "Blazer",
+        "rarity": "Epic HT",
+        "skills": [
+          "The wielder is immune to all damage inflicted by heat",
+          "The wielder can gather mana and create a burst of heat energy to set environment around in fire.",
+          "The wielder exerts burning effect on every hit to players and entities"
+        ],
+        "type": "Elemental"
+      },
+      "-OaKvlvqnplOYnAZgPtD": {
+        "color": "#30a8f8",
+        "description": "A force respected by the heart of Ocean.\nManifesting the power to control Water.\n",
+        "drawbacks": [
+          "The wielder can't exist hell for more than ten minutes",
+          "The wielder takes amplified fire damage"
+        ],
+        "id": 4,
+        "name": "Drown",
+        "rarity": "Legendary LT",
+        "skills": [
+          "The wielder has increased agility in water.",
+          "The wielder possesses a vision and breath to see and breathe underwater",
+          "The wielder Manifest increased damaging potential when in cold place or water",
+          "The welder can release burst of mana to freeze the Environment around"
+        ],
+        "type": "Elemental"
+      },
+      "-Oc6oztPquYCuVVO4mcF": {
+        "color": "#000000",
+        "description": "Sub-ability allows the user to release a dark aura.\n",
+        "drawbacks": [
+          "The sub inherits no drawback."
+        ],
+        "id": 7,
+        "name": "Gloom",
+        "rarity": "Epic LT",
+        "skills": [
+          "Can we activate by shifting and right clicking on crystal of darkness",
+          "On activation:",
+          "Petrifying any nearby entities. (Excluding bosses)",
+          "DUR: 5 second , CD: 5 min , Cost: 4 mana , Radius: 40 Blocks"
+        ],
+        "type": "stun"
+      },
+      "-Oc6qQ6E85ow_q7GleBg": {
+        "color": "#d4ff00",
+        "description": "The power can transposition entities.",
+        "drawbacks": [
+          "The sub inherits no drawback"
+        ],
+        "id": 3,
+        "name": "Swap",
+        "rarity": "Legendary HT",
+        "skills": [
+          "Can we activate by left clicking a ender pearl while looking down:",
+          "Shift - To change the initial target.",
+          "Jump - To change position with target. "
+        ],
+        "type": "Transposition"
+      }
+    }
+  }
+}

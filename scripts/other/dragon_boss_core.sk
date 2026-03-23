@@ -1,0 +1,822 @@
+# ===================================================================
+# OPTIMIZED DRAGON BOSS LOGIC (V7 - Strict Death-Triggered Phases)
+# ===================================================================
+
+options:
+    world: "world_the_end"
+    dragon_range: 150
+    
+    # Cooldowns (In Seconds)
+    p1_min: 15
+    p1_max: 30
+    p2_min: 8
+    p2_max: 20
+    p3_min: 6
+    p3_max: 15
+
+
+# ===================================================================
+# --- 2. THE AI BRAIN (Full Logic) ---
+# ===================================================================
+
+function startDragonAI():
+    while {dragon.battle.active} is true:
+        # 1. Find Dragon
+        delete {_d}
+        loop all ender dragons:
+            if "%loop-entity's world%" contains "end":
+                set {_d} to loop-entity
+                stop loop
+        
+        # If dragon is missing/dead, cleanup and stop
+        if {_d} is not set:
+            delete {dragon.battle.active}
+            delete {dragon.phase}
+            delete {dragon.uuid}
+            execute console command "dragon:ability on"
+            stop loop
+
+        # 2. Phase 3 Buffs (Enforce Perms)
+        if {dragon.phase} is 3:
+            if {dragon.crystalshield.active} is not set:
+                execute console command "dragon:crystalshield on"
+            loop all players:
+                if "%loop-player's world%" contains "end":
+                    if {ability.suppressed.%loop-player's uuid%} is not set:
+                        execute console command "dragon:ability off"
+                    stop loop 
+
+        # 3. Timers & Attacks
+        if {dragon.attack_timer} is not set:
+            if {dragon.phase} is 1:
+                set {dragon.attack_timer} to random integer between {@p1_min} and {@p1_max}
+            else if {dragon.phase} is 2:
+                set {dragon.attack_timer} to random integer between {@p2_min} and {@p2_max}
+            else:
+                set {dragon.attack_timer} to random integer between {@p3_min} and {@p3_max}
+        
+        subtract 1 from {dragon.attack_timer}
+        
+        if {dragon.attack_timer} <= 0:
+            delete {dragon.attack_timer}
+            if {dragon.phase} is 1:
+                set {_skill} to random integer between 1 and 4
+            else:
+                set {_skill} to random integer between 1 and 5
+            
+            if {_skill} is 1:
+                execute console command "dragon:transcend"
+            else if {_skill} is 2:
+                execute console command "dragon:beam"
+            else if {_skill} is 3:
+                execute console command "dragon:freeze"
+            else if {_skill} is 4:
+                execute console command "dragon:firewall"
+            else if {_skill} is 5:
+                # Random Teleport Skill
+                if y-coordinate of {_d} > 70:
+                    set {_rx} to random number between -70 and 70
+                    set {_rz} to random number between -70 and 70
+                    set {_ry} to random number between 75 and 100
+                    set {_tp_loc} to location({_rx}, {_ry}, {_rz}, world {@world})
+                    teleport {_d} to {_tp_loc}
+                    execute console command "execute at %uuid of {_d}% run particle portal ~ ~ ~ 2 2 2 0.5 300"
+                    execute console command "execute at %uuid of {_d}% run playsound entity.enderman.teleport master @a[distance=..300] ~ ~ ~ 2 0.5"
+                    loop all players:
+                        if "%loop-player's world%" contains "end":
+                            send "&5&oThe Dragon transcends positions..." to loop-player
+            
+            # Phase 2+ Combo Chance
+            if {dragon.phase} >= 2:
+                if chance of 15%:
+                    wait 2 seconds
+                    execute console command "dragon:freeze"
+                    wait 10 ticks
+                    execute console command "dragon:beam"
+
+        wait 1 second
+
+# ===================================================================
+# --- 2. DAMAGE HANDLER & RESURRECTION (The Core Logic) ---
+# ===================================================================
+
+on damage of an ender dragon:
+    # --- A. INITIALIZE BATTLE ---
+    if {dragon.battle.active} is not set:
+        set {dragon.battle.active} to true
+        set {dragon.phase} to 1
+        set {dragon.uuid} to uuid of victim
+        execute console command "dragon:startbattle"
+        startDragonAI()
+
+    # --- B. INVULNERABILITY ---
+    if {dragon.transitioning} is true:
+        cancel event
+        stop
+
+    # --- C. CHECK FOR LETHAL DAMAGE ---
+    # This block ONLY runs if the hit is strong enough to kill the dragon
+    if final damage >= health of victim:
+        
+        # --- PHASE 1 DEATH -> TRANSITION TO PHASE 2 ---
+        if {dragon.phase} is 1:
+            # 1. Stop the actual death
+            cancel event
+            
+            # 2. Keep it alive at 1 HP so it doesn't despawn
+            set health of victim to 1
+            
+            # 3. Update Variables
+            set {dragon.phase} to 2
+            set {dragon.transitioning} to true
+            
+            # 4. Trigger Healing & Cinematic (This script handles the full heal)
+            execute console command "dragon:phasetwo"
+            broadcast "&5&lThe Dragon refuses to die! It draws power from the Void!"
+            
+            # 5. End Transition (Dragon becomes vulnerable again after cinematic starts)
+            wait 5 seconds
+            delete {dragon.transitioning}
+            stop
+
+        # --- PHASE 2 DEATH -> TRANSITION TO PHASE 3 ---
+        else if {dragon.phase} is 2:
+            # 1. Stop the actual death
+            cancel event
+            
+            # 2. Keep it alive
+            set health of victim to 1
+            
+            # 3. Update Variables
+            set {dragon.phase} to 3
+            set {dragon.transitioning} to true
+            
+            # 4. Trigger Cinematic & Heal
+            execute console command "dragon:phasethree"
+            broadcast "&4&lTHE DRAGON GOES BERSERK! IT WILL NOT FALL!"
+            
+            wait 5 seconds
+            delete {dragon.transitioning}
+            stop
+            
+        # --- PHASE 3 DEATH ---
+        # If we are in Phase 3, we do NOT cancel the event.
+        # The dragon takes the damage, dies, and triggers the 'on death' event below.
+
+# ===================================================================
+# --- 3. MELEE "GRAB" MECHANIC ---
+# ===================================================================
+
+on damage:
+    if victim is a player:
+        if attacker is an ender dragon:
+            if {dragon.phase} >= 2:
+                if {dragon.ride.cooldown.%victim's uuid%} is set:
+                    stop
+                
+                set {_chance} to 50
+                if {dragon.phase} is 3:
+                    set {_chance} to 100
+                
+                if chance of {_chance}%:
+                    set {dragon.ride.cooldown.%victim's uuid%} to true
+                    send "&c&lThe Dragon grabs you!" to victim
+                    
+                    execute console command "ride %victim% mount %uuid of attacker%"
+                    wait 2 seconds
+                    execute console command "ride %victim% dismount"
+                    
+                    wait 10 seconds
+                    delete {dragon.ride.cooldown.%victim's uuid%}
+
+# ===================================================================
+# --- 4. CLEANUP & VICTORY ---
+# ===================================================================
+on death of an ender dragon:
+    # Reset Logic Variables
+    delete {dragon.battle.active}
+    delete {dragon.phase}
+    delete {dragon.uuid}
+    delete {dragon.transitioning}
+    delete {dragon.attack_timer}
+    
+    # Reset World State
+    execute console command "dragon:crystalshield off"
+    execute console command "dragon:ability on" 
+
+    # Victory Effects
+    set {_death_loc} to location of victim
+    create explosion of power 0 at {_death_loc}
+    execute console command "execute at %x-coord of {_death_loc}% %y-coord of {_death_loc}% %z-coord of {_death_loc}% run particle flash ~ ~ ~ 3 3 3 1 10"
+    execute console command "execute at %x-coord of {_death_loc}% %y-coord of {_death_loc}% %z-coord of {_death_loc}% run particle explosion_emitter ~ ~ ~ 1 1 1 1 5"
+
+    loop all players:
+        execute console command "execute at %loop-player% run playsound entity.ender_dragon.death master @s ~ ~ ~ 100 0.5"
+        execute console command "execute at %loop-player% run playsound ui.toast.challenge_complete master @s ~ ~ ~ 100 1"
+        send title "&6&lVICTORY" with subtitle "&7The Dragon has been slain!" to loop-player for 5 seconds
+
+    broadcast ""
+    broadcast "&5&m-----------------------------------------------------"
+    broadcast "&d&l           THE DRAGON HAS FALLEN!"
+    broadcast "&f       The End has been liberated by &a%attacker%&f!"
+    broadcast "&5&m-----------------------------------------------------"
+    broadcast ""
+
+    # Fancy Firework Finale
+    loop 10 times:
+        wait 4 ticks
+        set {_rx} to random number between -15 and 15
+        set {_rz} to random number between -15 and 15
+        set {_particle_loc} to location({_death_loc}'s x-coord + {_rx}, {_death_loc}'s y-coord, {_death_loc}'s z-coord + {_rz}, world {@world})
+        strike lightning effect at {_particle_loc}
+        execute console command "execute at %x-coord of {_particle_loc}% %y-coord of {_particle_loc}% %z-coord of {_particle_loc}% run particle firework ~ ~ ~ 0 1 0 0.1 10"
+
+
+# ===================================================================
+# --- GLOBAL UTILITY FUNCTIONS ---
+# ===================================================================
+
+function suppressAllFlight(d: entity):
+    loop all players:
+        if "%loop-player's world%" contains "end":
+            if distance between loop-player and {_d} <= {@dragon_range}:
+                set {_p} to loop-player
+                if {_p} does not have permission "*":
+                    if {_p}'s gamemode is survival:
+                        if {_p}'s flight mode is true:
+                            execute console command "essentials:fly %{_p}% disable"
+                            updateActionBar({_p}, "dragon_aura", "&c&lA powerful aura forces you to the ground!", 2 seconds)
+                            execute console command "execute at %{_p}% run playsound entity.generic.extinguish_fire master @s ~ ~ ~ 1 1"
+
+function forceShiftersToNormal(d: entity):
+    loop all players:
+        if "%loop-player's world%" contains "end":
+            if distance between loop-player and {_d} <= {@dragon_range}:
+                set {_p} to loop-player
+                if {_p} has permission "ability.shifter":
+                    if {_p} does not have permission "*":
+                        if {shifter.colossal.%{_p}'s uuid%} is set:
+                            send "&c&lA powerful aura forces your form to collapse!" to {_p}
+                            delete {shifter.colossal.%{_p}'s uuid%}
+                            delete {colossal.leap.active.%{_p}'s uuid%}
+                            delete {colossal.is.charging.%{_p}'s uuid%}
+                            delete {colossal.leap.ready.%{_p}'s uuid%}
+                            delete {colossal.leap.cooldown.%{_p}'s uuid%}
+                            delete {player.was.in.air.%{_p}'s uuid%}
+                        resetToNormal({_p})
+
+function forceSpectorsToSurvival(d: entity):
+    loop all players:
+        if "%loop-player's world%" contains "end":
+            if distance between loop-player and {_d} <= {@dragon_range}:
+                set {_p} to loop-player
+                if {_p} has permission "ability.spector":
+                    if {_p}'s gamemode is spectator:
+                        execute console command "gamemode survival %{_p}%"
+                        send "&c&lA powerful aura forces you back into your physical form!" to {_p}
+
+function suppressStrengtherEffects(d: entity):
+    loop all players:
+        if "%loop-player's world%" contains "end":
+            if distance between loop-player and {_d} <= {@dragon_range}:
+                set {_p} to loop-player
+                if {_p} has permission "ability.strengther":
+                    if "%{_p}'s active potion effects%" contains "strength":
+                        execute console command "minecraft:effect clear %{_p}% strength"
+                        execute console command "minecraft:effect clear %{_p}% regeneration"
+                        execute console command "minecraft:effect clear %{_p}% speed"
+                        send "&c&lYour enhancement was shattered by a powerful aura!" to {_p}
+
+function startCrystalShieldLoop():
+    while {dragon.crystalshield.active} is true:
+        # FIXED: Loop all entities and check type for compatibility
+        loop all entities:
+            if type of loop-entity is ender crystal:
+                if "%loop-entity's world%" contains "end":
+                    set {_x} to x-coordinate of loop-entity
+                    set {_y} to y-coordinate of loop-entity + 1
+                    set {_z} to z-coordinate of loop-entity
+                    execute console command "particle end_rod %{_x}% %{_y}% %{_z}% 0.5 0.5 0.5 0.01 10"
+        wait 10 ticks
+
+# ===================================================================
+# --- AUTOMATIC RANGE CHECK & RESET LOOP (5 Seconds) ---
+# ===================================================================
+
+every 5 seconds:
+    # 1. Find the Dragon ONCE
+    loop all ender dragons:
+        if "%loop-entity's world%" contains "end":
+            set {_d} to loop-entity
+            stop loop
+    
+    set {_players_in_range} to 0
+
+    # 2. Check Players
+    loop all players:
+        # A. Logic to remove ability suppression
+        if {ability.suppressed.%loop-player's uuid%} is true:
+            if {_d} is not set:
+                delete {ability.suppressed.%loop-player's uuid%}
+                updateActionBar(loop-player, "dragon_aura_fade", "&aThe Dragon's presence fades. Your power returns.", 2 seconds)
+            else if "%loop-player's world%" does not contain "end":
+                delete {ability.suppressed.%loop-player's uuid%}
+            else if distance between loop-player and {_d} > 150:
+                delete {ability.suppressed.%loop-player's uuid%}
+                updateActionBar(loop-player, "dragon_aura_escape", "&aYou have escaped the Dragon's aura. Your power returns.", 2 seconds)
+
+        if {_d} is set:
+            if "%loop-player's world%" contains "end":
+                if distance between loop-player and {_d} <= 150:
+                    add 1 to {_players_in_range}
+    # 3. RESET LOGIC (If Dragon exists but NO ONE is near)
+    if {_d} is set:
+        if {_players_in_range} is 0:
+            if {dragon.battle.active} is set:
+                delete {dragon.battle.active}
+                delete {dragon.phase}
+                delete {dragon.uuid}
+                delete {dragon.transitioning}
+                delete {dragon.next_attack_timer}
+                execute console command "dragon:crystalshield off"
+                execute console command "dragon:ability on"
+
+# ===================================================================
+# --- COMMANDS ---
+# ===================================================================
+
+command /dragon:ability <text>:
+    permission: ability.op
+    trigger:
+        loop all ender dragons:
+            if "%loop-entity's world%" contains "end":
+                set {_dragon} to loop-entity
+                stop loop
+        if {_dragon} is not set:
+            send "&cDragon not found." to player
+            stop
+        if argument 1 is "off":
+            loop all players:
+                if "%loop-player's world%" contains "end":
+                    if distance between loop-player and {_dragon} <= {@dragon_range}:
+                        set {ability.suppressed.%loop-player's uuid%} to true
+                        send "&5&lThe Dragon unleashes a VOID ROAR, crushing your inner power!" to loop-player
+                        suppressAllFlight({_dragon})
+                        forceShiftersToNormal({_dragon})
+                        forceSpectorsToSurvival({_dragon})
+                        suppressStrengtherEffects({_dragon})
+                        send "&cSuppression Mode: DISABLED for players in range." to player
+        
+        else if argument 1 is "on":
+            loop all players:
+                delete {ability.suppressed.%loop-player's uuid%}
+                updateActionBar(loop-player, "dragon_suppress_lift", "&aThe oppressive weight lifts!", 2 seconds)
+                send "&aSuppression Mode: ENABLED." to player
+
+command /dragon:freeze:
+    permission: ability.op
+    trigger:
+        loop all ender dragons:
+            if "%loop-entity's world%" contains "end":
+                set {_dragon} to loop-entity
+                stop loop
+        if {_dragon} is not set:
+            send "&cDragon not found." to player
+            stop
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if loop-player does not have permission "*":
+                    stop
+                if distance between loop-player and {_dragon} <= {@dragon_range}:
+                    updateActionBar(loop-player, "dragon_freeze", "&4&lAn overwhelming aura from the Dragon freezes you in place!", 2 seconds)
+                    execute console command "/flyspeed fly 0 %loop-player%"
+                    execute console command "/attribute %loop-player% minecraft:movement_speed base set 0"
+                    execute console command "/attribute %loop-player% minecraft:jump_strength base set 0"
+                    execute console command "/ppo %loop-player% add dragon_breath rings"
+                    execute console command "/effect give %loop-player% minecraft:darkness 10 0 true"
+                    execute console command "execute at %loop-player% as %loop-player% run playsound entity.ender_dragon.hurt master @s ~ ~ ~ 1 0.8"
+        send "&bFreeze Mode: Triggered." to player
+        wait 10 seconds
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                execute console command "/flyspeed fly 1 %loop-player%"
+                execute console command "/attribute %loop-player% minecraft:movement_speed base reset"
+                execute console command "/attribute %loop-player% minecraft:jump_strength base reset"
+                execute console command "/ppo %loop-player% reset"
+                execute console command "execute at %loop-player% as %loop-player% run playsound minecraft:block.conduit.activate master @s ~ ~ ~ 1000 2"
+                updateActionBar(loop-player, "dragon_freeze_end", "&aThe chilling magic shatters!", 2 seconds)
+
+command /dragon:crystalshield <text>:
+    permission: ability.op
+    trigger:
+        if argument 1 is "on":
+            if {dragon.crystalshield.active} is true:
+                stop
+            set {dragon.crystalshield.active} to true
+            startCrystalShieldLoop()
+            loop all ender dragons:
+                if "%loop-entity's world%" contains "end":
+                    set {_dragon} to loop-entity
+            if {_dragon} is set:
+                loop all players:
+                    if "%loop-player's world%" contains "end":
+                        if distance between loop-player and {_dragon} <= {@dragon_range}:
+                            send "&d&lThe Dragon enshrouds the crystals in a powerful, protective aura!" to loop-player
+            send "&aCrystal Shield Mode: ACTIVATED." to player
+        else if argument 1 is "off":
+            if {dragon.crystalshield.active} is not set:
+                stop
+            delete {dragon.crystalshield.active}
+            loop all players:
+                if "%loop-player's world%" contains "end":
+                    send "&a&lThe protective aura around the crystals has shattered!" to loop-player
+            send "&cCrystal Shield Mode: DEACTIVATED." to player
+
+command /dragon:beam:
+    permission: ability.op
+    trigger:
+        loop all ender dragons:
+            if "%loop-entity's world%" contains "end":
+                set {_dragon} to loop-entity
+                stop loop
+        if {_dragon} is not set:
+            send "&cDragon not found." to player
+            stop
+        set {_closest_dist} to 99999
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if loop-player does not have permission "*":
+                    if distance between loop-player and {_dragon} <= {@dragon_range}:
+                        set {_dist} to distance between loop-player and {_dragon}
+                        if {_dist} < {_closest_dist}:
+                            set {_closest_dist} to {_dist}
+                            set {_target_player} to loop-player
+        if {_target_player} is not set:
+            send "&cNo valid players found in range." to player
+            stop
+        set {_target_loc} to location of block under {_target_player}
+        send "&aDragon targeting %{_target_player}%." to player
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if distance between loop-player and {_dragon} <= {@dragon_range}:
+                    send "&c&lThe Dragon focuses its energy on the ground!" to loop-player
+                    execute console command "execute at %loop-player% run playsound entity.wither.spawn master @s ~ ~ ~ 0.5 1.8"
+        set {_timer} to 0
+        while {_timer} < 60:
+            add 1 to {_timer}
+            if {_dragon} is not alive:
+                stop loop
+            set {_start_pos} to {_dragon}'s head location
+            set {_end_pos} to {_target_loc}
+            set {_vx} to x of {_end_pos} - x of {_start_pos}
+            set {_vy} to y of {_end_pos} - y of {_start_pos}
+            set {_vz} to z of {_end_pos} - z of {_start_pos}
+            set {_dist} to distance between {_start_pos} and {_end_pos}
+            if {_dist} > 0:
+                loop 20 times:
+                    set {_d} to {_dist} * (loop-number / 20)
+                    set {_px} to x of {_start_pos} + ({_vx} / {_dist} * {_d})
+                    set {_py} to y of {_start_pos} + ({_vy} / {_dist} * {_d})
+                    set {_pz} to z of {_start_pos} + ({_vz} / {_dist} * {_d})
+                    execute console command "particle minecraft:dragon_breath %{_px}% %{_py}% %{_pz}% 0 0 0 0 1"
+            execute console command "execute at %{_target_loc}% run playsound block.beacon.ambient master @a[distance=..150] ~ ~ ~ 0.5 1.9"
+            wait 1 tick
+        create explosion of power 8 at {_target_loc} with fire
+        execute console command "execute at %{_target_loc}% run playsound entity.ender_dragon.death master @a[distance=..150] ~ ~ ~ 1 1"
+        loop all living entities in radius 3 of {_target_loc}:
+            if type of loop-entity is not ender dragon:
+                # FIXED: Removed 'from {_dragon}' to prevent errors
+                damage loop-entity by 40
+
+command /dragon:startbattle:
+    permission: ability.op
+    trigger:
+        loop all ender dragons:
+            if "%loop-entity's world%" contains "end":
+                set {_dragon} to loop-entity
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if distance between loop-player and {_dragon} <= {@dragon_range}:
+                    execute console command "execute at %loop-player% as %loop-player% run playsound entity.wither.spawn master @s ~ ~ ~ 0.8 0.5"
+                    execute console command "title %loop-player% title {""text"":""The Void-Corrupted Dragon"",""color"":""dark_purple"",""bold"":true}"
+                    execute console command "title %loop-player% subtitle {""text"":""Awakens..."",""color"":""dark_red""}"
+                    updateActionBar(loop-player, "dragon_start", "&5&k||&4&l F E A R   T H E   V O IＤ &5&k||", 2 seconds)
+        wait 4 seconds
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if distance between loop-player and {_dragon} <= {@dragon_range}:
+                    send "" to loop-player
+                    send "&5&m-----------------------------------------------------" to loop-player
+                    send "&d&l            Defeat the Upgraded Dragon!" to loop-player
+                    send "" to loop-player
+                    send "&8- &7The one who lands the final blow will earn the &8&lGloom &7ability." to loop-player
+                    send "&8- &7The one who obtains the Egg will become the &5&lDragon Wielder&7." to loop-player
+                    send "" to loop-player
+                    send "&c&lGood luck, champions." to loop-player
+                    send "&5&m-----------------------------------------------------" to loop-player
+                    execute console command "execute at %loop-player% as %loop-player% run playsound entity.ender_dragon.growl master @s ~ ~ ~ 1 1.2"
+        set {_healing_ticks} to 0
+        while {_healing_ticks} < 100:
+            add 1 to {_healing_ticks}
+            if {_dragon} is not alive:
+                stop loop
+            heal {_dragon} by 1 hearts
+            set {_dx} to x-coordinate of {_dragon}
+            set {_dy} to y-coordinate of {_dragon}
+            set {_dz} to z-coordinate of {_dragon}
+            wait 2 ticks
+
+command /dragon:tpme:
+    permission: ability.op
+    trigger:
+        loop all ender dragons:
+            if "%loop-entity's world%" contains "end":
+                set {_dragon} to loop-entity
+                stop loop
+        if {_dragon} is not set:
+            send "&cDragon not found." to player
+            stop
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                send "&5&oThe Dragon transcends positions..." to loop-player
+        teleport {_dragon} to player
+        execute console command "execute at %player% as %player% run particle portal ~ ~1 ~ 2 2 2 0.5 300"
+        execute console command "execute at %player% as %player% run playsound entity.enderman.teleport master @s ~ ~ ~ 2 0.5"
+
+command /dragon:transcend:
+    permission: ability.op
+    trigger:
+        set {dragon.is_transcending} to true
+        loop all ender dragons:
+            if "%loop-entity's world%" contains "end":
+                set {_dragon} to loop-entity
+                stop loop
+        if {_dragon} is not set:
+            send "&cDragon not found." to player
+            stop
+        set {_closest_dist} to 99999
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if loop-player does not have permission "*":
+                    if distance between loop-player and {_dragon} <= {@dragon_range}:
+                        set {_dist} to distance between loop-player and {_dragon}
+                        if {_dist} < {_closest_dist}:
+                            set {_closest_dist} to {_dist}
+                            set {_target_player} to loop-player
+        if {_target_player} is not set:
+            send "&cNo valid player targets found in range." to player
+            stop
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if distance between loop-player and {_dragon} <= {@dragon_range}:
+                    send "&c&lThe Dragon is linking with %{_target_player}%!" to loop-player
+        execute console command "execute at %{_target_player}% as %{_target_player}% run playsound entity.elder_guardian.curse master @s ~ ~ ~ 1 0.5"
+        send "&aSuccessfully initiated transcend on %{_target_player}%." to player
+        
+        set {_time} to 5
+        loop 50 times:
+            updateActionBar({_target_player}, "boss", "&4&lLINKING: &c&l%{_time}%...", 1 second)
+            subtract 0.1 from {_time}
+            wait 0.1 second
+        updateActionBar({_target_player}, "boss", "&5&lThe Dragon Transcends!", 2 seconds)
+        
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if distance between loop-player and {_dragon} <= {@dragon_range}:
+                    send "&5&lThe Dragon Transcends!" to loop-player
+        
+        teleport {_dragon} to {_target_player}
+        execute console command "execute at %{_target_player}% as %{_target_player}% run particle portal ~ ~1 ~ 2 2 2 0.5 300"
+        execute console command "execute at %{_target_player}% as %{_target_player}% run playsound entity.enderman.teleport master @s ~ ~ ~ 2 0.5"
+        wait 2 second
+        delete {dragon.is_transcending}
+
+
+command /dragon:firewall:
+    permission: ability.op
+    permission message: &cYou cannot command the Dragon's fire.
+    trigger:
+        # --- 1. Find the Dragon (For Range Check) ---
+        loop all ender dragons in world "world_the_end":
+            set {_dragon} to loop-entity
+            stop loop
+        
+        # --- 2. Announce & Gather Targets ---
+        # We build a list of targets first to ensure we don't miss anyone moving around
+        clear {_targets::*}
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if distance between loop-player and {_dragon} <= {@dragon_range}:
+                    send "&c&lThe sky turns purple... A barrage is incoming!" to loop-player
+                    execute console command "execute at %loop-player% as %loop-player% run playsound entity.blaze.shoot master @s ~ ~ ~ 1 0.6"
+                    
+                    if loop-player does not have permission "*":
+                        add loop-player to {_targets::*}
+        
+        send "&aDragon Firewall initiated on %size of {_targets::*}% targets." to player
+
+        # --- 3. The Barrage Loop ---
+        # We loop 4 times to fire 4 projectiles at EACH player
+        loop 4 times:
+            loop {_targets::*}:
+                set {_victim} to loop-value-2
+                
+                # --- A. Calculate Spawn Position (The Sky) ---
+                set {_p_loc} to location of {_victim}
+                
+                # Randomize start point: 20-35 blocks up, and -15 to 15 blocks sideways
+                set {_rx} to random number between -15 and 15
+                set {_rz} to random number between -15 and 15
+                set {_ry} to random number between 25 and 35
+                
+                # Create the spawn location object
+                set {_spawn_loc} to location(x-coord of {_p_loc} + {_rx}, y-coord of {_p_loc} + {_ry}, z-coord of {_p_loc} + {_rz}, world of {_p_loc})
+                
+                # --- B. Calculate Motion Vector (Aim at Player) ---
+                set {_vx} to x-coord of {_p_loc} - x-coord of {_spawn_loc}
+                set {_vy} to y-coord of {_p_loc} - y-coord of {_spawn_loc}
+                set {_vz} to z-coord of {_p_loc} - z-coord of {_spawn_loc}
+                
+                # Normalize the vector (Math to make speed consistent)
+                set {_dist} to sqrt(({_vx} * {_vx}) + ({_vy} * {_vy}) + ({_vz} * {_vz}))
+                set {_speed} to 1.5 # How fast the fireball moves
+                
+                set {_mx} to ({_vx} / {_dist}) * {_speed}
+                set {_my} to ({_vy} / {_dist}) * {_speed}
+                set {_mz} to ({_vz} / {_dist}) * {_speed}
+                
+                # --- C. Summon the Projectile ---
+                set {_sx} to x-coord of {_spawn_loc}
+                set {_sy} to y-coord of {_spawn_loc}
+                set {_sz} to z-coord of {_spawn_loc}
+
+                # 30% Chance for Dragon Fireball (Purple Acid)
+                if chance of 60%:
+                    # CHANGED: Now uses Motion exactly like the normal fireball
+                    execute console command "execute at %{_victim}% run summon minecraft:dragon_fireball %{_sx}% %{_sy}% %{_sz}% {Motion:[%{_mx}%,%{_my}%,%{_mz}%],ExplosionPower:2}"
+                
+                # 70% Chance for Super Fireball
+                else:
+                    execute console command "execute at %{_victim}% run summon minecraft:fireball %{_sx}% %{_sy}% %{_sz}% {Motion:[%{_mx}%,%{_my}%,%{_mz}%],ExplosionPower:5}"
+
+            # Wait a few ticks between waves so they don't all spawn instantly
+            wait 8 ticks
+
+command /dragon:phasetwo:
+    permission: ability.op
+    trigger:
+        # 1. Find Dragon
+        loop all ender dragons:
+            if "%loop-entity's world%" contains "end":
+                set {_dragon} to loop-entity
+                stop loop
+        if {_dragon} is not set:
+            stop
+
+        # 2. The "Shockwave" Start
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if distance between loop-player and {_dragon} <= {@dragon_range}:
+                    # Audio
+                    execute console command "execute at %loop-player% as %loop-player% run playsound entity.warden.sonic_boom master @s ~ ~ ~ 1 0.6"
+                    execute console command "execute at %loop-player% as %loop-player% run playsound entity.ender_dragon.growl master @s ~ ~ ~ 2 0.8"
+                    
+                    # Visuals
+                    execute console command "title %loop-player% title {""text"":""PHASE TWO"",""color"":""dark_purple"",""bold"":true}"
+                    execute console command "title %loop-player% subtitle {""text"":""The Void's True Fury"",""color"":""light_purple""}"
+                    execute console command "effect give %loop-player% minecraft:blindness 4 0 true"
+                    execute console command "effect give %loop-player% minecraft:nausea 6 0 true"
+
+        send "&aPhase Two initiated. Healing sequence started." to player
+        
+        # 3. The Healing Loop (Updated: Removed Hearts)
+        set {_healing_ticks} to 0
+        while {_healing_ticks} < 100:
+            add 1 to {_healing_ticks}
+            
+            if {_dragon} is not alive:
+                stop loop
+            
+            # Heal
+            heal {_dragon} by 1 hearts
+            
+            # Particle Logic (Only Void/Energy particles now)
+            set {_dx} to x-coordinate of {_dragon}
+            set {_dy} to y-coordinate of {_dragon}
+            set {_dz} to z-coordinate of {_dragon}
+            
+            execute console command "particle reverse_portal %{_dx}% %{_dy}% %{_dz}% 2 2 2 0.2 50"
+            
+            # Charging sound every second
+            if mod({_healing_ticks}, 10) is 0:
+                execute console command "execute at %uuid of {_dragon}% run playsound block.beacon.ambient master @a[distance=..150] ~ ~ ~ 2 0.5"
+            wait 2 ticks
+
+# ===================================================================
+# --- PHASE THREE: THE BERSERKER (Now with Healing) ---
+# ===================================================================
+command /dragon:phasethree:
+    permission: ability.op
+    trigger:
+        # 1. Find Dragon
+        loop all ender dragons:
+            if "%loop-entity's world%" contains "end":
+                set {_dragon} to loop-entity
+                stop loop
+        
+        # 2. Cinematic Explosion at Dragon
+        if {_dragon} is set:
+            set {_dloc} to location of {_dragon}
+            execute console command "execute at %x-coord of {_dloc}% %y-coord of {_dloc}% %z-coord of {_dloc}% run particle explosion_emitter ~ ~ ~ 1 1 1 1 5"
+            execute console command "execute at %x-coord of {_dloc}% %y-coord of {_dloc}% %z-coord of {_dloc}% run particle flash ~ ~ ~ 5 5 5 1 5"
+
+        # 3. Player Effects
+        loop all players:
+            if "%loop-player's world%" contains "end":
+                if distance between loop-player and {_dragon} <= {@dragon_range}:
+                    # Audio
+                    execute console command "execute at %loop-player% as %loop-player% run playsound entity.ender_dragon.death master @s ~ ~ ~ 1 0.5"
+                    execute console command "execute at %loop-player% as %loop-player% run playsound entity.wither.spawn master @s ~ ~ ~ 1 0.5"
+                    execute console command "execute at %loop-player% as %loop-player% run playsound item.trident.thunder master @s ~ ~ ~ 2 0.5"
+                    
+                    # Visuals
+                    execute console command "title %loop-player% title {""text"":""PHASE THREE"",""color"":""dark_red"",""bold"":true}"
+                    execute console command "title %loop-player% subtitle {""text"":""SURVIVE."",""color"":""red"",""bold"":true}"
+                    
+                    # Effects
+                    execute console command "effect give %loop-player% minecraft:blindness 3 0 true"
+                    execute console command "effect give %loop-player% minecraft:wither 5 1 true"
+                    
+                    # Atmospheric Lightning
+                    strike lightning effect at location of loop-player
+
+        # 4. Enforce Permanent Buffs
+        wait 10 ticks 
+        execute console command "dragon:crystalshield on"
+        execute console command "dragon:ability off"
+
+        broadcast "&4&lTHE DRAGON GOES BERSERK! SHIELDS AND SUPPRESSION ARE PERMANENT!"
+        
+        # 5. NEW: The Phase 3 Healing Loop
+        # Identical to Phase 2 but signifies the final stand
+        set {_healing_ticks} to 0
+        while {_healing_ticks} < 100:
+            add 1 to {_healing_ticks}
+            
+            if {_dragon} is not alive:
+                stop loop
+            
+            heal {_dragon} by 1 hearts
+            
+            set {_dx} to x-coordinate of {_dragon}
+            set {_dy} to y-coordinate of {_dragon}
+            set {_dz} to z-coordinate of {_dragon}
+            wait 2 ticks
+
+
+command /abilitycontrol:player <player> <text>:
+    permission: ability.op
+    trigger:
+        set {_target} to argument 1
+        if {_target} is not set:
+            send "&cPlayer not found." to player
+            stop
+        if argument 2 is "on":
+            set {ability.suppressed.%{_target}'s uuid%} to true
+            send "&aSuppressed %{_target}%." to player
+        else if argument 2 is "off":
+            delete {ability.suppressed.%{_target}'s uuid%}
+            send "&aEnabled %{_target}%." to player
+
+on tab complete of "/dragon:ability":
+    set tab completions to "on" and "off"
+on tab complete of "/dragon:crystalshield":
+    set tab completions to "on" and "off"
+on tab complete of "/abilitycontrol:player":
+    if size of tab complete arguments is 1:
+        set tab completions to all players
+    if size of tab complete arguments is 2:
+        set tab completions to "on" and "off"
+
+on damage of an end crystal:
+    if {dragon.crystalshield.active} is true:
+        if damage cause is projectile:
+            if attacker is a player:
+                set {_shooter} to attacker
+                set {_arrow} to projectile
+                cancel event
+                set {_crystal} to victim
+                execute console command "execute at %{_crystal}% run playsound block.anvil.land master @a[distance=..100] ~ ~ ~ 1 1.8"
+                set {_vx} to (x of {_shooter}) - (x of {_arrow})
+                set {_vy} to (y of {_shooter} + 1) - (y of {_arrow})
+                set {_vz} to (z of {_shooter}) - (z of {_arrow})
+                set {_length} to sqrt({_vx}^2 + {_vy}^2 + {_vz}^2)
+                if {_length} is 0:
+                    stop
+                set {_nx} to {_vx} / {_length}
+                set {_ny} to {_vy} / {_length}
+                set {_nz} to {_vz} / {_length}
+                set {_speed} to 2.5
+                set {_return_vector} to vector({_nx} * {_speed}, {_ny} * {_speed}, {_nz} * {_speed})
+                set velocity of {_arrow} to {_return_vector}
+                updateActionBar({_shooter}, "dragon_deflect", "&c&lYour arrow was deflected by the shield!", 2 seconds)

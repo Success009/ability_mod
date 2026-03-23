@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.ability.mod.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ScreenAccessor"
+  ],
+  "client": [
+    "TitleScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
